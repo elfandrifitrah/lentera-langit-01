@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lentera Langit</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f7b267; font-family: "Trebuchet MS", Verdana, sans-serif; }
+  #game-canvas { display: block; width: 100%; height: 100%; }
+  .hud { position: absolute; color: #fff7e6; text-shadow: 0 2px 6px rgba(60,30,0,.55); pointer-events: none; }
+  #hud-top { top: 14px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 22px; }
+  .readout { background: rgba(38,26,18,.55); border: 2px solid rgba(255,214,150,.75); border-radius: 12px; padding: 8px 14px; min-width: 150px; }
+  .readout .label { font-size: 13px; letter-spacing: 2px; color: #ffd696; }
+  .readout .value { font-size: 34px; font-weight: bold; line-height: 1.05; }
+  #mission-banner { top: 110px; left: 50%; transform: translateX(-50%); background: rgba(38,26,18,.6); border: 2px solid #ffb35c; border-radius: 14px; padding: 8px 20px; font-size: 22px; font-weight: bold; }
+  #bars { left: 22px; bottom: 205px; width: 210px; }
+  .bar-row { margin-top: 6px; font-size: 13px; letter-spacing: 1px; }
+  .bar { height: 12px; background: rgba(0,0,0,.45); border: 1px solid #ffd696; border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #ffb35c; }
+  #panel-left { left: 14px; bottom: 8px; }
+  #panel-right { right: 14px; bottom: 8px; }
+  .panel-box { display: flex; flex-direction: column; gap: 4px; background: rgba(30,20,14,.78); border: 2px solid rgba(255,214,150,.8); border-radius: 16px; padding: 8px 10px; }
+  .gauge-row { display: flex; gap: 6px; }
+  #lamps { display: flex; gap: 6px; justify-content: center; margin-top: 2px; }
+  .lamp { font-size: 10px; letter-spacing: 1px; padding: 2px 7px; border-radius: 6px; border: 1px solid #8a6a45; color: #6b5a44; background: #241a12; }
+  .lamp.on { color: #1c1208; background: #ffb35c; border-color: #ffd696; }
+  .lamp.warn.on { background: #ff5a4e; color: #fff; }
+  .gauge { text-align: center; }
+  .gauge canvas { background: #17100b; border-radius: 50%; border: 2px solid #8a6a45; }
+  .gauge .glabel { font-size: 10px; letter-spacing: 1px; color: #ffd696; margin-top: 2px; }
+  #minimap-wrap { right: 22px; bottom: 215px; text-align: center; }
+  #minimap { background: rgba(20,40,50,.7); border: 2px solid rgba(255,214,150,.8); border-radius: 12px; }
+  #message { top: 46%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; font-weight: bold; text-align: center; }
+  #help { top: 162px; left: 50%; transform: translateX(-50%); font-size: 13px; background: rgba(38,26,18,.5); padding: 5px 12px; border-radius: 10px; white-space: nowrap; }
+  #stall { top: 170px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 26px; font-weight: bold; display: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+<div class="hud" id="hud-top">
+  <div class="readout"><div class="label">ALTITUDE</div><div class="value" id="hud-alt">0 FT</div></div>
+  <div class="readout"><div class="label">HEADING</div><div class="value" id="hud-hdg">000</div></div>
+  <div class="readout"><div class="label">SPEED</div><div class="value" id="hud-spd">0 KT</div></div>
+</div>
+<div class="hud" id="mission-banner">Lentera Langit</div>
+<div class="hud" id="stall">STALL</div>
+<div class="hud" id="bars">
+  <div class="bar-row">FUEL<div class="bar"><div class="bar-fill" id="fuel-fill"></div></div></div>
+  <div class="bar-row">HULL<div class="bar"><div class="bar-fill" id="hull-fill"></div></div></div>
+  <div class="bar-row">THROTTLE<div class="bar"><div class="bar-fill" id="thr-fill"></div></div></div>
+</div>
+<div class="hud" id="minimap-wrap"><canvas id="minimap" width="170" height="170"></canvas><div style="font-size:11px;letter-spacing:1px;">MAP</div></div>
+<div class="hud panel-box" id="panel-left">
+    <div class="gauge-row">
+      <div class="gauge"><canvas id="g-spd" width="64" height="64"></canvas><div class="glabel">AIRSPEED KT</div></div>
+      <div class="gauge"><canvas id="g-att" width="64" height="64"></canvas><div class="glabel">ATTITUDE</div></div>
+      <div class="gauge"><canvas id="g-alt" width="64" height="64"></canvas><div class="glabel">ALTIMETER FT</div></div>
+    </div>
+    <div class="gauge-row">
+      <div class="gauge"><canvas id="g-tc" width="64" height="64"></canvas><div class="glabel">TURN / SLIP</div></div>
+      <div class="gauge"><canvas id="g-hdg" width="64" height="64"></canvas><div class="glabel">HEADING</div></div>
+      <div class="gauge"><canvas id="g-vsi" width="64" height="64"></canvas><div class="glabel">VERT SPEED FPM</div></div>
+    </div>
+</div>
+<div class="hud panel-box" id="panel-right">
+    <div class="gauge-row">
+      <div class="gauge"><canvas id="g-rpm" width="64" height="64"></canvas><div class="glabel">RPM</div></div>
+      <div class="gauge"><canvas id="g-map" width="64" height="64"></canvas><div class="glabel">MANIFOLD INHG</div></div>
+      <div class="gauge"><canvas id="g-aoa" width="64" height="64"></canvas><div class="glabel">AOA DEG</div></div>
+    </div>
+    <div class="gauge-row">
+      <div class="gauge"><canvas id="g-oilp" width="64" height="64"></canvas><div class="glabel">OIL PRESS PSI</div></div>
+      <div class="gauge"><canvas id="g-oilt" width="64" height="64"></canvas><div class="glabel">OIL TEMP C</div></div>
+      <div class="gauge"><canvas id="g-fuel" width="64" height="64"></canvas><div class="glabel">FUEL GAL</div></div>
+    </div>
+    <div id="lamps">
+      <span class="lamp" id="lamp-flaps">FLAPS</span>
+      <span class="lamp" id="lamp-stall">STALL</span>
+      <span class="lamp" id="lamp-fuellow">FUEL LOW</span>
+      <span class="lamp on" id="lamp-gear">GEAR FIXED</span>
+    </div>
+</div>
+<div class="hud" id="message"></div>
+<div class="hud" id="help">W/S throttle · Arrows or mouse steer · V camera · F flaps · Space drop crate · R restart</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
