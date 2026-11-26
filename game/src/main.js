@@ -7,6 +7,7 @@ import { FlightModel } from './flight-model.js';
 import { CameraRig } from './camera-rig.js';
 import { buildRunway, buildRings, buildProps, RING_PATH } from './world-props.js';
 import { Missions } from './missions.js';
+import { Combat } from './combat.js';
 import { GameAudio } from './audio.js';
 import { Hud } from './hud.js';
 import { applyShotPose, isShotMode } from './shots.js';
@@ -48,11 +49,12 @@ scene.add(aircraft.blob);
 const flight = new FlightModel();
 const cameraRig = new CameraRig(camera);
 const missions = new Missions(scene);
+const combat = new Combat(scene);
 const audio = new GameAudio();
 const hud = new Hud();
 
 const params = new URLSearchParams(window.location.search);
-const shotMode = applyShotPose(params.get('shot'), flight, cameraRig, missions);
+const shotMode = applyShotPose(params.get('shot'), flight, cameraRig, missions, combat);
 if (params.get('shot') === 'ash') scene.fog = new THREE.Fog(0x9a8f85, 100, 1000);
 
 const keys = new Set();
@@ -61,17 +63,27 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   audio.start();
   if (e.code === 'KeyV') cameraRig.toggle();
+  if (e.code === 'KeyT') {
+    combat.gunner = !combat.gunner;
+    cameraRig.mode = combat.gunner ? 'gunner' : 'chase';
+    cameraRig.ready = false;
+  }
+  if (e.code === 'KeyX') combat.deployFlare(flight);
   if (e.code === 'KeyF') flight.flaps = !flight.flaps;
   if (e.code === 'Space') { missions.dropCrate(flight); e.preventDefault(); }
-  if (e.code === 'KeyR') { flight.reset(); missions.reset(); ringSet.rings.forEach((r) => r.material.color.set(0xff8c2e)); }
+  if (e.code === 'KeyR') { flight.reset(); missions.reset(); combat.reset(); ringSet.rings.forEach((r) => r.material.color.set(0xff8c2e)); }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
+let firing = false;
 window.addEventListener('pointermove', (e) => {
+  combat.mouseX = e.clientX;
+  combat.mouseY = e.clientY;
   mouseSteer.active = true;
   mouseSteer.roll = clamp((e.clientX / window.innerWidth - 0.5) * 2.4, -1, 1);
   mouseSteer.pitch = clamp((0.5 - e.clientY / window.innerHeight) * 2.0, -1, 1);
 });
-window.addEventListener('pointerdown', () => audio.start());
+window.addEventListener('pointerdown', () => { audio.start(); firing = true; });
+window.addEventListener('pointerup', () => { firing = false; });
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -101,22 +113,48 @@ function updatePapi() {
   runway.papi.forEach((box, i) => box.material.color.set(i < whites ? 0xffffff : 0xff4444));
 }
 
+function computeAimPoint() {
+  if (combat.gunner) {
+    const ndc = new THREE.Vector3(
+      ((combat.mouseX || window.innerWidth / 2) / window.innerWidth) * 2 - 1,
+      -(((combat.mouseY || window.innerHeight / 2) / window.innerHeight) * 2 - 1),
+      0.5,
+    );
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+    const p = ray.ray.origin.clone();
+    const step = ray.ray.direction.clone().multiplyScalar(25);
+    for (let i = 0; i < 120; i++) {
+      p.add(step);
+      if (p.y <= Math.max(terrainHeight(p.x, p.z), 0) + 2) return p;
+    }
+    return p;
+  }
+  const ahead = flight.position.clone().addScaledVector(flight.forward(), 420);
+  ahead.y = Math.max(terrainHeight(ahead.x, ahead.z), 0) + 4;
+  return ahead;
+}
+
 const clock = new THREE.Clock();
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
+  const aimPoint = shotMode && cameraRig.aimPoint ? cameraRig.aimPoint : computeAimPoint();
+  cameraRig.aimPoint = aimPoint;
   if (!shotMode) {
-    flight.step(dt, readInput());
-    missions.update(dt, flight, ringSet.rings, audio);
+    if (combat.gunner) combat.autopilot(dt, flight);
+    else flight.step(dt, readInput());
+    combat.update(dt, flight, aimPoint, firing || keys.has('KeyG'), audio);
+    missions.update(dt, flight, ringSet.rings, audio, combat);
   }
   aircraft.group.position.copy(flight.position);
   aircraft.group.rotation.order = 'YXZ';
   aircraft.group.rotation.y = flight.heading + Math.PI;
   aircraft.group.rotation.x = -flight.pitch;
   aircraft.group.rotation.z = flight.roll;
-  aircraft.prop.rotation.z += dt * (6 + flight.rpm * 95);
-  aircraft.propDisc.material.opacity = flight.rpm * 0.32;
+  for (const prop of aircraft.props) prop.rotation.z += dt * (6 + flight.rpm * 95);
+  for (const disc of aircraft.propDiscs) disc.material.opacity = flight.rpm * 0.32;
   aircraft.aileronL.rotation.x = flight.roll * 0.5;
   aircraft.aileronR.rotation.x = -flight.roll * 0.5;
   const groundY = Math.max(terrainHeight(flight.position.x, flight.position.z), 0);
@@ -130,7 +168,7 @@ function frame() {
   });
   updatePapi();
   cameraRig.update(dt, flight, aircraft.group);
-  hud.update(flight, missions);
+  hud.update(flight, missions, combat);
   audio.update(flight, missions);
   renderer.render(scene, camera);
 }
