@@ -3,21 +3,29 @@ import * as THREE from 'three';
 import { WORLD } from './config.js';
 import { RING_PATH } from './world-props.js';
 
-export function applyShotPose(shot, flight, cameraRig, missions) {
+export function applyShotPose(shot, flight, cameraRig, missions, combat) {
   if (!shot) return false;
-  const ring = RING_PATH[0];
   if (shot === 'cover') {
-    const target = RING_PATH[2];
-    flight.position.set(-120, 238, -160);
-    flight.heading = Math.atan2(target.x - flight.position.x, target.z - flight.position.z);
-    flight.pitch = -0.05;
-    flight.roll = -0.18;
-    flight.speed = 42;
-    flight.throttle = 0.75;
-    flight.rpm = 0.75;
+    flight.position.set(-230, 265, -120);
+    flight.heading = Math.atan2(-700 - flight.position.x, -500 - flight.position.z);
+    flight.pitch = -0.04;
+    flight.roll = -0.3;
+    flight.speed = 46;
+    flight.throttle = 0.8;
+    flight.rpm = 0.8;
     flight.airborne = true;
+    missions.stage = 1;
+    missions.ringIndex = RING_PATH.length;
+    missions.message = 'Destroy the installations. T gunner mode, X flares';
+    if (combat) {
+      combat.stageTracers(flight, new THREE.Vector3(-700, 30, -500));
+      combat.boom.position.set(-700, 24, -500);
+      combat.boomLife = 0.45;
+      combat.boom.material.opacity = 0.8;
+      combat.boom.scale.set(2.2, 2.2, 2.2);
+    }
     cameraRig.mode = 'chase';
-    cameraRig.distance = 24;
+    cameraRig.distance = 36;
     cameraRig.ready = false;
     return true;
   }
@@ -35,23 +43,30 @@ export function applyShotPose(shot, flight, cameraRig, missions) {
     cameraRig.mode = 'cockpit';
     return true;
   }
-  if (shot === 'drop') {
-    flight.position.set(WORLD.village.x - 130, 150, WORLD.village.z + 190);
-    flight.heading = Math.atan2(130, -190);
-    flight.pitch = -0.05;
-    flight.roll = 0.22;
-    flight.speed = 38;
-    flight.throttle = 0.6;
-    flight.rpm = 0.6;
+  if (shot === 'gunner') {
+    flight.position.set(-640, 265, 40);
+    flight.heading = Math.atan2(-300 - flight.position.x, 320 - flight.position.z);
+    flight.pitch = 0.02;
+    flight.roll = -0.42;
+    flight.speed = 46;
+    flight.throttle = 0.7;
+    flight.rpm = 0.7;
     flight.airborne = true;
     missions.stage = 1;
     missions.ringIndex = RING_PATH.length;
-    missions.message = 'Drop the crate on the village with Space';
-    missions.crateDropped = true;
-    missions.crate.visible = true;
-    missions.crate.position.set(WORLD.village.x - 40, 95, WORLD.village.z + 60);
-    cameraRig.mode = 'chase';
-    cameraRig.distance = 24;
+    missions.message = 'Gunner mode. Autopilot on. Click fires the side cannons';
+    if (combat) {
+      combat.gunner = true;
+      combat.mouseX = 640;
+      combat.mouseY = 380;
+      combat.stageTracers(flight, new THREE.Vector3(-300, 20, 320));
+      combat.boom.position.set(-300, 18, 320);
+      combat.boomLife = 0.45;
+      combat.boom.material.opacity = 0.8;
+      combat.boom.scale.set(2, 2, 2);
+      cameraRig.aimPoint = new THREE.Vector3(-300, 20, 320);
+    }
+    cameraRig.mode = 'gunner';
     cameraRig.ready = false;
     return true;
   }
@@ -67,13 +82,13 @@ export function applyShotPose(shot, flight, cameraRig, missions) {
     flight.airborne = false;
     flight.fuel = 62;
     flight.hull = 94;
-    missions.stage = 2;
+    missions.stage = 3;
     missions.done = true;
     missions.grade = 'S';
-    missions.score = 1620;
-    missions.message = 'Sortie complete. Grade S. Score 1620';
+    missions.score = 2480;
+    missions.message = 'Sortie complete. Grade S. Score 2480';
     cameraRig.mode = 'chase';
-    cameraRig.distance = 24;
+    cameraRig.distance = 26;
     cameraRig.ready = false;
     return true;
   }
