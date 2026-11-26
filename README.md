@@ -6,28 +6,73 @@
 
 Entry for the [Make the best flight game](https://make.fun/bounty/best-flight-game-20261126-0057) bounty on make.fun.
 
-A dawn flight game over a New Zealand style archipelago.
-Light the sky lanterns, drop supplies on the village, and land before the fuel runs dry.
+A Hercules gunship flies a dawn sortie over a New Zealand style archipelago.
+Light the sky lanterns through five rings.
+Destroy the radar station, the AAA batteries, and the supply depot with side cannons.
+Drop supplies on the village.
+Land before the fuel runs dry.
 
-## How to play
+![Cover](screenshots/01-cover.jpg)
 
-W and S control throttle.
-Arrow keys or the mouse steer.
-V switches chase and cockpit cameras.
-F toggles flaps.
-Space drops the supply crate.
-R restarts the sortie.
+## Screenshots
+
+| Cockpit final | Gunner mode | Sortie debrief |
+| --- | --- | --- |
+| ![Cockpit](screenshots/02-cockpit.jpg) | ![Gunner](screenshots/03-gunner.jpg) | ![Debrief](screenshots/04-debrief.jpg) |
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| W / S | Throttle up and down |
+| Arrow keys or mouse | Steer pitch and roll |
+| Q / E | Yaw |
+| Mouse click or G | Fire the side cannons |
+| X | Deploy a flare decoy |
+| T | Gunner mode with autopilot circuit |
+| V | Chase and cockpit cameras |
+| F | Flaps |
+| Space | Drop the supply crate |
+| R | Restart the sortie |
+
+## Flight model
+
+- Throttle, pitch, roll, and yaw with a coordinated turn from bank.
+- Stall below stall speed with nose drop and a warning lamp.
+- Ground effect, fuel burn rising with throttle, hull damage on hard contact.
+- Flaps lower the stall speed and shorten the landing roll.
+
+## Combat
+
+- Four turboprops, side cannons on both flanks, and flare pods under the wings.
+- Ground targets: a radar station, two AAA batteries, a supply depot, and a truck convoy.
+- AAA batteries launch homing missiles inside their range.
+- A flare decoy pulls a missile off the aircraft.
+- Gunner mode hands the flying to an autopilot circuit while the player aims with the mouse.
+
+## Instruments
+
+- Basic-T six pack: airspeed, attitude, altimeter, turn and slip, heading, vertical speed.
+- Engine cluster: RPM, manifold pressure, angle of attack, oil pressure, oil temperature, fuel gallons.
+- Every gauge prints its live numeric value.
+- Warning lamps cover flaps, stall, low fuel, and inbound missiles.
 
 ## Sortie
 
-Fly through five orange rings.
-Drop the crate on the village marker.
-Land on the runway or on the water beside the boat.
-Score grades the sortie S, A, B, or C.
+1. Fly through five orange rings.
+2. Destroy the four installations.
+3. Drop the crate on the village marker.
+4. Land on the runway or on the water beside the boat.
+5. Score grades the sortie S, A, B, or C.
 
 ## Build
 
 Three.js renders the world from static files.
 One height function builds the terrain mesh and answers collision queries.
-Web Audio synthesises the engine, the wind, and the theme motif.
+Web Audio synthesises the engines, the wind, the cannons, and the theme motif.
 No network request leaves the game folder.
+Run `node serve.ts` from the kit layout or open `game/index.html` through any static server.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
