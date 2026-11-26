@@ -1,101 +1,101 @@
-// A vintage gull-wing monoplane built from primitives, with moving control surfaces.
+// Hercules style four-engine gunship: high wing, side cannons, flare pods.
 import * as THREE from 'three';
 
-function box(w, h, d, mat, x, y, z, rz = 0) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+function mat(color, flat = true) {
+  return new THREE.MeshLambertMaterial({ color, flatShading: flat });
+}
+
+function box(w, h, d, color, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
   m.position.set(x, y, z);
-  m.rotation.z = rz;
   return m;
 }
 
 export function buildAircraft() {
   const group = new THREE.Group();
-  const pearl = new THREE.MeshLambertMaterial({ color: 0xf3ead8 });
-  const vermilion = new THREE.MeshLambertMaterial({ color: 0xc8402a });
-  const teal = new THREE.MeshLambertMaterial({ color: 0x2e6f6a });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x2b2b30 });
-  const glass = new THREE.MeshLambertMaterial({ color: 0x9fd4e8, transparent: true, opacity: 0.75 });
+  const grey = 0x8d99a3;
+  const dark = 0x2b2f33;
+  const accent = 0xc94f38;
 
-  // Teardrop fuselage: rounded cowling, tapered tail.
-  const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.16, 6.4, 12), pearl);
+  const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.7, 13, 12), mat(grey));
   fuselage.rotation.x = Math.PI / 2;
+  fuselage.position.z = 0.5;
   group.add(fuselage);
-  const cowling = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.6, 1.1, 12), vermilion);
-  cowling.rotation.x = Math.PI / 2;
-  cowling.position.z = -3.2;
-  group.add(cowling);
-  const spinner = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), dark);
-  spinner.position.z = -3.85;
-  group.add(spinner);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(1.9, 12, 10), mat(grey));
+  nose.scale.set(1, 0.92, 1.25);
+  nose.position.z = -6.2;
+  group.add(nose);
+  const cockpitGlass = box(2.6, 1.1, 2.2, 0x1d2b33, 0, 1.15, -5.6);
+  group.add(cockpitGlass);
+  const canopy = cockpitGlass;
+  const tailRamp = box(3.2, 2.2, 2.6, grey, 0, 0.7, 7.2);
+  tailRamp.rotation.x = 0.35;
+  group.add(tailRamp);
 
-  // Open cockpit with rim, seat back, and windscreen.
-  const canopy = new THREE.Group();
-  const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.22, 12), dark);
-  tub.position.set(0, 0.52, 0.5);
-  const seat = box(0.5, 0.5, 0.14, teal, 0, 0.62, 0.85);
-  const screen = box(0.62, 0.42, 0.05, glass, 0, 0.72, 0.05);
-  screen.rotation.x = -0.35;
-  const headrest = box(0.3, 0.34, 0.16, vermilion, 0, 0.7, 1.05);
-  canopy.add(tub, seat, screen, headrest);
-  group.add(canopy);
-
-  // Inverted gull wing: inner panels angle down, outer panels rise.
-  const wing = new THREE.Group();
-  for (const s of [-1, 1]) {
-    wing.add(box(2.4, 0.13, 1.6, pearl, s * 1.2, -0.42, -0.8, s * -0.16));
-    wing.add(box(3.4, 0.12, 1.35, pearl, s * 3.9, -0.28, -0.8, s * 0.1));
-    wing.add(box(0.5, 0.14, 1.35, vermilion, s * 5.5, -0.1, -0.8, s * 0.1));
-  }
+  const wing = box(23, 0.5, 3.4, grey, 0, 2.05, -1.2);
   group.add(wing);
+  const wingTipL = box(2.2, 0.55, 3.4, accent, -11.2, 2.05, -1.2);
+  const wingTipR = box(2.2, 0.55, 3.4, accent, 11.2, 2.05, -1.2);
+  group.add(wingTipL, wingTipR);
 
-  const aileronGeo = new THREE.BoxGeometry(2.4, 0.08, 0.5);
-  const aileronL = new THREE.Mesh(aileronGeo, teal);
-  aileronL.position.set(-4.1, -0.24, 0.05);
-  const aileronR = new THREE.Mesh(aileronGeo, teal);
-  aileronR.position.set(4.1, -0.24, 0.05);
+  const props = [];
+  const propDiscs = [];
+  for (const x of [-8.4, -4.2, 4.2, 8.4]) {
+    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.75, 4.4, 10), mat(grey));
+    nacelle.rotation.x = Math.PI / 2;
+    nacelle.position.set(x, 1.55, -2.2);
+    group.add(nacelle);
+    const prop = new THREE.Group();
+    const bladeA = box(0.22, 3.6, 0.08, dark, 0, 0, 0);
+    const bladeB = box(3.6, 0.22, 0.08, dark, 0, 0, 0);
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), mat(dark));
+    prop.add(bladeA, bladeB, hub);
+    prop.position.set(x, 1.55, -4.55);
+    group.add(prop);
+    props.push(prop);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.85, 24),
+      new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0, side: THREE.DoubleSide }),
+    );
+    disc.position.set(x, 1.55, -4.5);
+    group.add(disc);
+    propDiscs.push(disc);
+  }
+
+  const fin = box(0.4, 4.2, 2.6, grey, 0, 3.4, 6.6);
+  const tailplane = box(9.5, 0.35, 2.2, grey, 0, 5.3, 6.8);
+  group.add(fin, tailplane);
+
+  const gunL = new THREE.Group();
+  const gunR = new THREE.Group();
+  for (const [gun, side] of [[gunL, -1], [gunR, 1]]) {
+    const housing = box(0.7, 0.9, 3.2, dark, side * 2.05, -0.3, 1.8);
+    const barrelA = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.4, 8), mat(dark));
+    barrelA.rotation.z = Math.PI / 2;
+    barrelA.position.set(side * 3.4, -0.15, 1.2);
+    const barrelB = barrelA.clone();
+    barrelB.position.set(side * 3.4, -0.5, 2.4);
+    gun.add(housing, barrelA, barrelB);
+    group.add(gun);
+  }
+
+  const flarePodL = box(1.6, 0.5, 2.4, dark, -6.2, 1.5, -0.6);
+  const flarePodR = box(1.6, 0.5, 2.4, dark, 6.2, 1.5, -0.6);
+  group.add(flarePodL, flarePodR);
+
+  const gearL = box(1.1, 1.6, 4.6, grey, -2.1, -1.9, 0.6);
+  const gearR = box(1.1, 1.6, 4.6, grey, 2.1, -1.9, 0.6);
+  group.add(gearL, gearR);
+
+  const aileronL = box(4.4, 0.18, 1.1, 0x6e7a83, -8.8, 2.0, 0.35);
+  const aileronR = box(4.4, 0.18, 1.1, 0x6e7a83, 8.8, 2.0, 0.35);
   group.add(aileronL, aileronR);
 
-  // Rounded tail feathers.
-  const tailWing = box(3.6, 0.1, 0.95, vermilion, 0, 0.18, 2.95);
-  const fin = box(0.1, 1.25, 1.05, vermilion, 0, 0.72, 2.95);
-  const finTop = new THREE.Mesh(new THREE.SphereGeometry(0.52, 10, 8), vermilion);
-  finTop.scale.set(0.12, 0.6, 1);
-  finTop.position.set(0, 1.3, 2.95);
-  group.add(tailWing, fin, finTop);
-
-  // Two-blade wooden propeller on the longitudinal axis, with a blur disc at speed.
-  const prop = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.24, 3.1, 0.06), dark);
-  blade.rotation.z = 0.5;
-  const bladeTipA = box(0.26, 0.3, 0.07, vermilion, 0, 1.42, 0);
-  const bladeTipB = box(0.26, 0.3, 0.07, vermilion, 0, -1.42, 0);
-  const spinnerCap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), dark);
-  prop.add(blade, bladeTipA, bladeTipB, spinnerCap);
-  prop.position.z = -3.95;
-  group.add(prop);
-  const propDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(1.58, 28),
-    new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0, side: THREE.DoubleSide }),
-  );
-  propDisc.position.z = -3.93;
-  group.add(propDisc);
-
-  // Fixed gear with teardrop wheel spats and a tail skid.
-  const spatGeo = new THREE.SphereGeometry(0.5, 10, 8);
-  for (const sx of [-1.25, 1.25]) {
-    const leg = box(0.12, 0.85, 0.12, dark, sx, -0.75, -1.1);
-    const spat = new THREE.Mesh(spatGeo, vermilion);
-    spat.scale.set(0.42, 0.85, 1.5);
-    spat.position.set(sx, -1.15, -1.1);
-    group.add(leg, spat);
-  }
-  group.add(box(0.08, 0.5, 0.08, dark, 0, -0.35, 3.1));
-
   const blob = new THREE.Mesh(
-    new THREE.CircleGeometry(3.6, 20),
+    new THREE.CircleGeometry(9, 20),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }),
   );
   blob.rotation.x = -Math.PI / 2;
 
-  return { group, prop, propDisc, aileronL, aileronR, blob, canopy, wing };
+  return { group, props, propDiscs, aileronL, aileronR, blob, canopy, wing, gunL, gunR };
 }
