@@ -1,5 +1,6 @@
 // Live instrument panel: six-pack flight gauges plus an engine cluster.
 // Every gauge redraws each frame from flight state and prints its value.
+import * as THREE from 'three';
 import { WORLD, clamp } from './config.js';
 
 const W = 64;
@@ -74,13 +75,22 @@ export class Hud {
     };
     this.weapons = document.getElementById('weapons');
     this.reticle = document.getElementById('reticle');
+    const markerBox = document.getElementById('markers');
+    this.markerDivs = [];
+    for (let i = 0; i < 7; i++) {
+      const d = document.createElement('div');
+      d.className = 'marker';
+      markerBox.appendChild(d);
+      this.markerDivs.push(d);
+    }
+    this.projVec = new THREE.Vector3();
     this.map = document.getElementById('minimap').getContext('2d');
     this.prevHeading = null;
     this.turnRate = 0;
     this.lastTime = performance.now();
   }
 
-  update(flight, missions, combat) {
+  update(flight, missions, combat, camera) {
     this.combat = combat;
     const now = performance.now();
     const dt = Math.max((now - this.lastTime) / 1000, 0.001);
@@ -122,6 +132,26 @@ export class Hud {
       this.lamps.missile.className = 'lamp warn' + (combat.missileWarning ? ' on' : '');
       this.weapons.textContent = `CANNON ${combat.ammo} · FLARES ${combat.flares}${combat.gunner ? ' · GUNNER' : ''}`;
       this.reticle.style.display = combat.gunner ? 'block' : 'none';
+      document.body.classList.toggle('gunner', combat.gunner);
+      if (combat.gunner && camera) {
+        const items = [
+          ...combat.targets.map((t) => ({ x: t.x, y: t.y, z: t.z, label: t.name.toUpperCase(), alive: t.alive })),
+          ...combat.trucks.map((t) => ({ x: t.x || 0, y: t.y || 0, z: t.z || 0, label: 'TRUCK', alive: t.alive })),
+        ];
+        items.forEach((item, i) => {
+          const div = this.markerDivs[i];
+          if (!div) return;
+          this.projVec.set(item.x, item.y, item.z).project(camera);
+          const behind = this.projVec.z > 1;
+          if (behind) { div.style.display = 'none'; return; }
+          const dist = Math.round(Math.hypot(item.x - flight.position.x, item.z - flight.position.z));
+          div.style.display = 'block';
+          div.style.left = `${(this.projVec.x * 0.5 + 0.5) * window.innerWidth}px`;
+          div.style.top = `${(-this.projVec.y * 0.5 + 0.5) * window.innerHeight}px`;
+          div.className = 'marker' + (item.alive ? '' : ' dead');
+          div.textContent = item.alive ? `${item.label} ${dist}M` : `${item.label} DESTROYED`;
+        });
+      }
       if (combat.gunner) {
         this.reticle.style.left = `${combat.mouseX || window.innerWidth / 2}px`;
         this.reticle.style.top = `${combat.mouseY || window.innerHeight / 2}px`;
