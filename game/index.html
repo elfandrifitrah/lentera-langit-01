@@ -34,6 +34,13 @@
   #message { top: 46%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; font-weight: bold; text-align: center; }
   #weapons { right: 22px; top: 118px; font-size: 15px; letter-spacing: 1px; background: rgba(38,26,18,.65); padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,214,150,.7); }
   #reticle { width: 34px; height: 34px; border: 2px solid #ff8c2e; border-radius: 50%; transform: translate(-50%, -50%); display: none; pointer-events: none; }
+  #nightvision { inset: 0; display: none; pointer-events: none; background: radial-gradient(ellipse at center, rgba(40,255,120,.10) 40%, rgba(0,20,8,.55) 100%), repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 2px, transparent 2px 4px); }
+  #markers { inset: 0; display: none; pointer-events: none; }
+  .marker { position: absolute; transform: translate(-50%, -50%); border: 2px solid #ff5a4e; color: #ff8a7a; font-size: 11px; letter-spacing: 1px; padding: 14px 6px 2px; text-align: center; white-space: nowrap; }
+  .marker.dead { border-color: #8a8a8a; color: #bdbdbd; }
+  body.gunner #game-canvas { filter: hue-rotate(72deg) saturate(1.7) brightness(1.08) contrast(1.12); }
+  body.gunner #nightvision { display: block; }
+  body.gunner #markers { display: block; }
   #help { top: 162px; left: 50%; transform: translateX(-50%); font-size: 13px; background: rgba(38,26,18,.5); padding: 5px 12px; border-radius: 10px; white-space: nowrap; }
   #stall { top: 170px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 26px; font-weight: bold; display: none; }
 </style>
@@ -89,6 +96,8 @@
 </div>
 <div class="hud" id="weapons">CANNON 320 · FLARES 12</div>
 <div class="hud" id="reticle"></div>
+<div class="hud" id="nightvision"></div>
+<div class="hud" id="markers"></div>
 <div class="hud" id="message"></div>
 <div class="hud" id="help">W/S throttle · Arrows or mouse steer · Click fire cannons · X flares · T gunner mode · V camera · F flaps · Space drop crate · R restart</div>
 <script type="module" src="./src/main.js"></script>
