@@ -8,15 +8,16 @@ export function applyShotPose(shot, flight, cameraRig, missions) {
   const ring = RING_PATH[0];
   if (shot === 'cover') {
     const target = RING_PATH[2];
-    flight.position.set(60, 195, -60);
+    flight.position.set(-120, 238, -160);
     flight.heading = Math.atan2(target.x - flight.position.x, target.z - flight.position.z);
-    flight.pitch = 0.02;
+    flight.pitch = -0.05;
     flight.roll = -0.18;
     flight.speed = 42;
     flight.throttle = 0.75;
     flight.rpm = 0.75;
     flight.airborne = true;
     cameraRig.mode = 'chase';
+    cameraRig.distance = 24;
     cameraRig.ready = false;
     return true;
   }
@@ -46,20 +47,33 @@ export function applyShotPose(shot, flight, cameraRig, missions) {
     missions.stage = 1;
     missions.ringIndex = RING_PATH.length;
     missions.message = 'Drop the crate on the village with Space';
+    missions.crateDropped = true;
+    missions.crate.visible = true;
+    missions.crate.position.set(WORLD.village.x - 40, 95, WORLD.village.z + 60);
     cameraRig.mode = 'chase';
+    cameraRig.distance = 24;
     cameraRig.ready = false;
     return true;
   }
-  if (shot === 'ash') {
-    flight.position.set(-500, 320, -200);
-    flight.heading = Math.atan2(-750, -650);
-    flight.pitch = 0.05;
-    flight.roll = -0.3;
-    flight.speed = 48;
-    flight.throttle = 0.85;
-    flight.rpm = 0.85;
-    flight.airborne = true;
+  if (shot === 'debrief') {
+    const r = WORLD.runway;
+    flight.position.set(r.x - Math.sin(r.heading) * 120, r.height + 1.2, r.z - Math.cos(r.heading) * 120);
+    flight.heading = r.heading;
+    flight.pitch = 0;
+    flight.roll = 0;
+    flight.speed = 0;
+    flight.throttle = 0;
+    flight.rpm = 0.08;
+    flight.airborne = false;
+    flight.fuel = 62;
+    flight.hull = 94;
+    missions.stage = 2;
+    missions.done = true;
+    missions.grade = 'S';
+    missions.score = 1620;
+    missions.message = 'Sortie complete. Grade S. Score 1620';
     cameraRig.mode = 'chase';
+    cameraRig.distance = 24;
     cameraRig.ready = false;
     return true;
   }
