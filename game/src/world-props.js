@@ -93,16 +93,49 @@ export function buildProps() {
   const houseGeo = new THREE.BoxGeometry(9, 6, 8);
   const houseMat = new THREE.MeshLambertMaterial({ color: 0xe8d8b0 });
   const houses = new THREE.InstancedMesh(houseGeo, houseMat, 60);
+  const roofGeo = new THREE.ConeGeometry(7.5, 4, 4);
+  const roofMat = new THREE.MeshLambertMaterial({ color: 0xb23a2e, flatShading: true });
+  const roofs = new THREE.InstancedMesh(roofGeo, roofMat, 60);
   for (let i = 0; i < 60; i++) {
     const x = WORLD.village.x + (rand() - 0.5) * 420;
     const z = WORLD.village.z + (rand() - 0.5) * 420;
-    dummy.position.set(x, terrainHeight(x, z) + 3, z);
+    const y = terrainHeight(x, z);
+    const rot = rand() * Math.PI;
+    dummy.position.set(x, y + 3, z);
     dummy.scale.set(1, 1, 1);
-    dummy.rotation.y = rand() * Math.PI;
+    dummy.rotation.y = rot;
     dummy.updateMatrix();
     houses.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, y + 8, z);
+    dummy.rotation.y = rot + Math.PI / 4;
+    dummy.updateMatrix();
+    roofs.setMatrixAt(i, dummy.matrix);
   }
-  group.add(houses);
+  group.add(houses, roofs);
+
+  const targetRing = new THREE.Mesh(
+    new THREE.RingGeometry(26, 34, 40),
+    new THREE.MeshBasicMaterial({ color: 0xff8c2e, side: THREE.DoubleSide }),
+  );
+  targetRing.rotation.x = -Math.PI / 2;
+  targetRing.position.set(WORLD.village.x, terrainHeight(WORLD.village.x, WORLD.village.z) + 1.2, WORLD.village.z);
+  const beacon = new THREE.Mesh(
+    new THREE.CylinderGeometry(3, 3, 160, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffc46b, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+  );
+  beacon.position.set(WORLD.village.x, terrainHeight(WORLD.village.x, WORLD.village.z) + 80, WORLD.village.z);
+  group.add(targetRing, beacon);
+
+  const lighthouse = new THREE.Group();
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(4, 5.5, 30, 10), new THREE.MeshLambertMaterial({ color: 0xf2ead8 }));
+  tower.position.y = 15;
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.8, 7, 10), new THREE.MeshLambertMaterial({ color: 0xb23a2e }));
+  band.position.y = 20;
+  const lampRoom = new THREE.Mesh(new THREE.SphereGeometry(3.4, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }));
+  lampRoom.position.y = 32;
+  lighthouse.add(tower, band, lampRoom);
+  lighthouse.position.set(WORLD.boat.x + 160, Math.max(terrainHeight(WORLD.boat.x + 160, WORLD.boat.z - 120), 1), WORLD.boat.z - 120);
+  group.add(lighthouse);
 
   const lanternGeo = new THREE.SphereGeometry(1.6, 10, 8);
   const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffc46b });
@@ -132,8 +165,8 @@ export function buildProps() {
   const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
   const clouds = new THREE.InstancedMesh(cloudGeo, cloudMat, 60);
   for (let i = 0; i < 60; i++) {
-    dummy.position.set((rand() - 0.5) * 6000, 320 + rand() * 180, (rand() - 0.5) * 6000);
-    dummy.scale.set(1.6 + rand() * 2, 0.45, 1 + rand());
+    dummy.position.set((rand() - 0.5) * 6000, 300 + rand() * 260, (rand() - 0.5) * 6000);
+    dummy.scale.set(1.2 + rand() * 2.6, 0.3 + rand() * 0.45, 0.8 + rand() * 1.6);
     dummy.rotation.y = rand() * Math.PI;
     dummy.updateMatrix();
     clouds.setMatrixAt(i, dummy.matrix);
