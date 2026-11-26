@@ -70,14 +70,18 @@ export class Hud {
       flaps: document.getElementById('lamp-flaps'),
       stall: document.getElementById('lamp-stall'),
       fuellow: document.getElementById('lamp-fuellow'),
+      missile: document.getElementById('lamp-missile'),
     };
+    this.weapons = document.getElementById('weapons');
+    this.reticle = document.getElementById('reticle');
     this.map = document.getElementById('minimap').getContext('2d');
     this.prevHeading = null;
     this.turnRate = 0;
     this.lastTime = performance.now();
   }
 
-  update(flight, missions) {
+  update(flight, missions, combat) {
+    this.combat = combat;
     const now = performance.now();
     const dt = Math.max((now - this.lastTime) / 1000, 0.001);
     this.lastTime = now;
@@ -114,6 +118,15 @@ export class Hud {
     this.lamps.flaps.className = 'lamp' + (flight.flaps ? ' on' : '');
     this.lamps.stall.className = 'lamp warn' + (flight.stalled ? ' on' : '');
     this.lamps.fuellow.className = 'lamp warn' + (flight.fuel < 20 ? ' on' : '');
+    if (combat) {
+      this.lamps.missile.className = 'lamp warn' + (combat.missileWarning ? ' on' : '');
+      this.weapons.textContent = `CANNON ${combat.ammo} · FLARES ${combat.flares}${combat.gunner ? ' · GUNNER' : ''}`;
+      this.reticle.style.display = combat.gunner ? 'block' : 'none';
+      if (combat.gunner) {
+        this.reticle.style.left = `${combat.mouseX || window.innerWidth / 2}px`;
+        this.reticle.style.top = `${combat.mouseY || window.innerHeight / 2}px`;
+      }
+    }
 
     let ctx = this.gauges.spd;
     face(ctx);
@@ -246,7 +259,7 @@ export class Hud {
       ctx.arc(mx, my, r, 0, Math.PI * 2);
       ctx.fill();
     }
-    const target = missions.currentTarget(flight);
+    const target = missions.currentTarget(flight, this.combat);
     const [tx, ty] = toMap(target.x, target.z);
     ctx.fillStyle = '#ff8c2e';
     ctx.beginPath();
