@@ -30,11 +30,13 @@ export class CameraRig {
   update(dt, flight, aircraftGroup) {
     const pos = flight.position;
     if (this.mode === 'gunner') {
-      this.setFov(55);
-      const back = flight.forward().multiplyScalar(-32);
-      this.camera.position.copy(pos).add(back).add(new THREE.Vector3(0, 15, 0));
-      this.camera.up.set(0, 1, 0);
+      this.setFov(50);
       const look = this.aimPoint || pos.clone().addScaledVector(flight.forward(), 200);
+      const toAim = look.clone().sub(pos);
+      const sideSign = Math.sign(toAim.x * Math.cos(flight.heading) - toAim.z * Math.sin(flight.heading)) || 1;
+      const side = new THREE.Vector3(Math.cos(flight.heading), 0, -Math.sin(flight.heading)).multiplyScalar(sideSign * 2.4);
+      this.camera.position.copy(pos).add(side).add(new THREE.Vector3(0, 0.4, 0));
+      this.camera.up.set(0, 1, 0);
       this.camera.lookAt(look);
       return;
     }
