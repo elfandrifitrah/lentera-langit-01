@@ -103,6 +103,9 @@ export class GameAudio {
   }
 
   chime(index) { if (this.ctx) this.pluck(SCALE[index % SCALE.length] * 2, this.ctx.currentTime, 0.12, 0.9); }
+  cannon() { if (this.ctx) this.drum(this.ctx.currentTime, 0.05); }
+  explosion() { if (this.ctx) this.drum(this.ctx.currentTime, 0.4); }
+  missileWarn() { if (this.ctx) this.pluck(880, this.ctx.currentTime, 0.08, 0.25); }
   thud() { if (this.ctx) this.drum(this.ctx.currentTime); }
   fanfare() {
     if (!this.ctx) return;
