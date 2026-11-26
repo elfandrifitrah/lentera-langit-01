@@ -32,6 +32,8 @@
   #minimap-wrap { right: 22px; bottom: 215px; text-align: center; }
   #minimap { background: rgba(20,40,50,.7); border: 2px solid rgba(255,214,150,.8); border-radius: 12px; }
   #message { top: 46%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; font-weight: bold; text-align: center; }
+  #weapons { right: 22px; top: 118px; font-size: 15px; letter-spacing: 1px; background: rgba(38,26,18,.65); padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,214,150,.7); }
+  #reticle { width: 34px; height: 34px; border: 2px solid #ff8c2e; border-radius: 50%; transform: translate(-50%, -50%); display: none; pointer-events: none; }
   #help { top: 162px; left: 50%; transform: translateX(-50%); font-size: 13px; background: rgba(38,26,18,.5); padding: 5px 12px; border-radius: 10px; white-space: nowrap; }
   #stall { top: 170px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 26px; font-weight: bold; display: none; }
 </style>
@@ -81,11 +83,14 @@
       <span class="lamp" id="lamp-flaps">FLAPS</span>
       <span class="lamp" id="lamp-stall">STALL</span>
       <span class="lamp" id="lamp-fuellow">FUEL LOW</span>
+      <span class="lamp warn" id="lamp-missile">MISSILE</span>
       <span class="lamp on" id="lamp-gear">GEAR FIXED</span>
     </div>
 </div>
+<div class="hud" id="weapons">CANNON 320 · FLARES 12</div>
+<div class="hud" id="reticle"></div>
 <div class="hud" id="message"></div>
-<div class="hud" id="help">W/S throttle · Arrows or mouse steer · V camera · F flaps · Space drop crate · R restart</div>
+<div class="hud" id="help">W/S throttle · Arrows or mouse steer · Click fire cannons · X flares · T gunner mode · V camera · F flaps · Space drop crate · R restart</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
