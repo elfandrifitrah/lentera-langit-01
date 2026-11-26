@@ -29,6 +29,15 @@ export class CameraRig {
 
   update(dt, flight, aircraftGroup) {
     const pos = flight.position;
+    if (this.mode === 'gunner') {
+      this.setFov(55);
+      const back = flight.forward().multiplyScalar(-32);
+      this.camera.position.copy(pos).add(back).add(new THREE.Vector3(0, 15, 0));
+      this.camera.up.set(0, 1, 0);
+      const look = this.aimPoint || pos.clone().addScaledVector(flight.forward(), 200);
+      this.camera.lookAt(look);
+      return;
+    }
     if (this.mode === 'cockpit') {
       this.setFov(62);
       const eye = new THREE.Vector3(0, 1.55, 1.3).applyEuler(aircraftGroup.rotation).add(pos);
