@@ -44,7 +44,7 @@ export function applyShotPose(shot, flight, cameraRig, missions, combat) {
     return true;
   }
   if (shot === 'gunner') {
-    flight.position.set(-640, 265, 40);
+    flight.position.set(-470, 195, 150);
     flight.heading = Math.atan2(-300 - flight.position.x, 320 - flight.position.z);
     flight.pitch = 0.02;
     flight.roll = -0.42;
