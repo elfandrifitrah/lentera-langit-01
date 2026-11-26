@@ -160,7 +160,7 @@ function frame() {
   const groundY = Math.max(terrainHeight(flight.position.x, flight.position.z), 0);
   aircraft.blob.position.set(flight.position.x, groundY + 0.5, flight.position.z);
   aircraft.blob.material.opacity = clamp(0.3 - (flight.position.y - groundY) * 0.001, 0.05, 0.3);
-  aircraft.group.visible = cameraRig.mode !== 'cockpit';
+  aircraft.group.visible = cameraRig.mode !== 'cockpit' && cameraRig.mode !== 'gunner';
   water.material.uniforms.uTime.value = t;
   ringSet.rings.forEach((ring, i) => {
     const s = 1 + Math.sin(t * 2.4 + i) * 0.04;
@@ -168,7 +168,7 @@ function frame() {
   });
   updatePapi();
   cameraRig.update(dt, flight, aircraft.group);
-  hud.update(flight, missions, combat);
+  hud.update(flight, missions, combat, camera);
   audio.update(flight, missions);
   renderer.render(scene, camera);
 }
