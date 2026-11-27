@@ -174,3 +174,62 @@ export function buildProps() {
   group.add(clouds);
   return group;
 }
+
+export function createLanternShow(scene) {
+  const count = 36;
+  const mesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1.25, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffc46b }),
+    count,
+  );
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  const dummy = new THREE.Object3D();
+  const slots = [];
+  for (let i = 0; i < count; i++) {
+    slots.push({ life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 });
+    dummy.position.set(0, -800, 0);
+    dummy.scale.set(0.01, 0.01, 0.01);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  return {
+    burst(x, y, z) {
+      let n = 0;
+      for (const s of slots) {
+        if (s.life > 0) continue;
+        const a = Math.random() * Math.PI * 2;
+        s.life = 4.2 + Math.random() * 1.4;
+        s.x = x;
+        s.y = y;
+        s.z = z;
+        s.vx = Math.cos(a) * (1.5 + Math.random() * 3.5);
+        s.vz = Math.sin(a) * (1.5 + Math.random() * 3.5);
+        s.vy = 7 + Math.random() * 5;
+        if (++n >= 8) break;
+      }
+    },
+    update(dt) {
+      let dirty = false;
+      for (let i = 0; i < count; i++) {
+        const s = slots[i];
+        if (s.life <= 0) continue;
+        dirty = true;
+        s.life -= dt;
+        s.x += s.vx * dt;
+        s.z += s.vz * dt;
+        s.y += s.vy * dt;
+        s.vy += dt * 0.35;
+        const k = s.life <= 0 ? 0.01 : Math.min(1, s.life / 1.1);
+        dummy.position.set(s.x, s.life <= 0 ? -800 : s.y, s.z);
+        dummy.scale.set(k, k * 1.35, k);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      if (dirty) mesh.instanceMatrix.needsUpdate = true;
+    },
+  };
+}

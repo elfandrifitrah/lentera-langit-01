@@ -1,4 +1,4 @@
-// Air-to-ground combat: installations, AAA missiles, flares, gunner autopilot.
+// Air-to-ground combat: installations, flak, missiles, flares, gunner autopilot.
 import * as THREE from 'three';
 import { WORLD, clamp } from './config.js';
 import { terrainHeight } from './terrain.js';
@@ -40,18 +40,52 @@ function buildInstallation(def) {
       g.add(shed);
     }
   }
+  const smoke = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.4, 9, 52, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x2a2724, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  smoke.position.y = 30;
+  g.add(smoke);
   g.position.set(def.x, y, def.z);
-  return g;
+  return { group: g, smoke };
+}
+
+function poolSphere(scene, radius, color, n) {
+  const slots = [];
+  for (let i = 0; i < n; i++) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 7, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false }),
+    );
+    mesh.visible = false;
+    scene.add(mesh);
+    slots.push({ mesh, life: 0, vel: new THREE.Vector3(), state: 'idle' });
+  }
+  return slots;
+}
+
+function aircraftPoint(flight, x, y, z) {
+  const local = new THREE.Vector3(x, y, z);
+  local.applyEuler(new THREE.Euler(-flight.pitch, flight.heading + Math.PI, flight.roll, 'YXZ'));
+  return local.add(flight.position);
 }
 
 export class Combat {
   constructor(scene) {
     this.scene = scene;
-    this.reset();
     this.targets = INSTALLATIONS.map((def) => {
-      const group = buildInstallation(def);
-      scene.add(group);
-      return { ...def, group, y: group.position.y + 8, alive: true, hpLeft: def.hp, missileTimer: 4 + Math.random() * 4 };
+      const built = buildInstallation(def);
+      scene.add(built.group);
+      return {
+        ...def,
+        group: built.group,
+        smoke: built.smoke,
+        y: built.group.position.y + 8,
+        alive: true,
+        hpLeft: def.hp,
+        missileTimer: 4 + Math.random() * 4,
+        flakTimer: 1.5 + Math.random() * 2,
+      };
     });
     this.trucks = [];
     for (let i = 0; i < 3; i++) {
@@ -62,27 +96,40 @@ export class Combat {
       bed.position.set(-1.4, 1.4, 0);
       truck.add(cab, bed);
       scene.add(truck);
-      this.trucks.push({ group: truck, alive: true, hpLeft: 20, offset: i * 90 });
+      this.trucks.push({ group: truck, alive: true, hpLeft: 20, offset: i * 90, kind: 'truck', name: 'Truck' });
     }
     this.tracerPool = [];
     for (let i = 0; i < 40; i++) {
-      const t = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
       t.visible = false;
       scene.add(t);
       this.tracerPool.push({ mesh: t, vel: new THREE.Vector3(), life: 0 });
     }
-    this.missile = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5, 8), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
+    this.missile = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 5.5, 8), new THREE.MeshBasicMaterial({ color: 0xf4f4f4 }));
     this.missile.visible = false;
     scene.add(this.missile);
     this.missileVel = new THREE.Vector3();
     this.missileActive = false;
-    this.flareMesh = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }));
+    this.flareMesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1c2 }));
     this.flareMesh.visible = false;
     scene.add(this.flareMesh);
     this.flareVel = new THREE.Vector3();
     this.boom = new THREE.Mesh(new THREE.SphereGeometry(6, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff9d3c, transparent: true, opacity: 0 }));
     scene.add(this.boom);
     this.boomLife = 0;
+    this.muzzles = [0, 1].map(() => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.7, 6, 5), new THREE.MeshBasicMaterial({ color: 0xfff2c4, transparent: true, opacity: 0 }));
+      scene.add(m);
+      return m;
+    });
+    this.muzzleLife = 0;
+    this.flakPool = poolSphere(scene, 3.2, 0xffd27a, 6);
+    this.dustPool = poolSphere(scene, 1.6, 0xc4b49a, 10);
+    this.trail = poolSphere(scene, 0.7, 0xffe2b0, 16);
+    this.hurt = poolSphere(scene, 1.1, 0x3a3836, 8);
+    this.trailAcc = 0;
+    this.hurtAcc = 0;
+    this.reset();
   }
 
   reset() {
@@ -96,16 +143,36 @@ export class Combat {
     this.missileWarning = false;
     this.destroyed = 0;
     this.scoreGained = 0;
+    this.recoil = 0;
+    this.hitMarker = 0;
+    this.nearMissed = false;
+    this.missileActive = false;
+    if (this.missile) this.missile.visible = false;
     if (this.targets) {
-      for (const t of this.targets) { t.alive = true; t.hpLeft = t.hp; t.group.visible = true; t.group.rotation.z = 0; }
+      for (const t of this.targets) {
+        t.alive = true;
+        t.hpLeft = t.hp;
+        t.group.visible = true;
+        t.group.rotation.z = 0;
+        t.smoke.material.opacity = 0;
+        t.missileTimer = 4 + Math.random() * 4;
+        t.flakTimer = 1.6 + Math.random() * 2;
+      }
       for (const t of this.trucks) { t.alive = true; t.hpLeft = 20; t.group.visible = true; }
-      this.missileActive = false;
-      this.missile.visible = false;
+    }
+    for (const pool of [this.flakPool, this.dustPool, this.trail, this.hurt]) {
+      if (!pool) continue;
+      for (const slot of pool) {
+        slot.life = 0;
+        slot.state = 'idle';
+        slot.mesh.visible = false;
+        slot.mesh.material.opacity = 0;
+      }
     }
   }
 
   installationsLeft() {
-    return this.targets.filter((t) => t.alive && t.kind !== 'depot').length + (this.targets.find((t) => t.kind === 'depot')?.alive ? 1 : 0);
+    return this.targets.filter((t) => t.alive).length;
   }
 
   nearestTarget(flight) {
@@ -120,6 +187,7 @@ export class Combat {
   }
 
   autopilot(dt, flight) {
+    flight.bleed(dt);
     const cx = WORLD.village.x;
     const cz = WORLD.village.z;
     const radius = 520;
@@ -127,28 +195,32 @@ export class Combat {
     const targetAngle = angle + dt * 0.14;
     const tx = cx + Math.sin(targetAngle) * radius;
     const tz = cz + Math.cos(targetAngle) * radius;
-    const ty = Math.max(terrainHeight(tx, tz), 0) + 230;
+    const floor = Math.max(terrainHeight(tx, tz), 0) + 80;
+    const ty = Math.max(floor, 210);
     flight.position.x += (tx - flight.position.x) * clamp(dt * 1.6, 0, 1);
     flight.position.z += (tz - flight.position.z) * clamp(dt * 1.6, 0, 1);
     flight.position.y += (ty - flight.position.y) * clamp(dt * 1.2, 0, 1);
+    const ground = Math.max(terrainHeight(flight.position.x, flight.position.z), 0) + 48;
+    if (flight.position.y < ground) flight.position.y = ground;
     flight.heading = Math.atan2(Math.cos(targetAngle), -Math.sin(targetAngle)) + Math.PI / 2;
     flight.roll = -0.42;
     flight.pitch = 0.02;
     flight.speed = 46;
     flight.throttle = 0.7;
-    flight.rpm = 0.7;
+    flight.rpm += (0.7 - flight.rpm) * clamp(dt * 2, 0, 1);
     flight.airborne = true;
     flight.verticalSpeed = 0;
   }
 
-  deployFlare(flight) {
+  deployFlare(flight, audio) {
     if (this.flares <= 0 || this.flareCooldown > 0) return false;
     this.flares--;
     this.flareCooldown = 1;
-    this.flareLife = 3;
+    this.flareLife = 3.2;
     this.flareMesh.visible = true;
     this.flareMesh.position.copy(flight.position).add(new THREE.Vector3(0, -3, 0));
-    this.flareVel.copy(flight.forward()).multiplyScalar(-flight.speed * 0.3).add(new THREE.Vector3(0, -14, 0));
+    this.flareVel.copy(flight.forward()).multiplyScalar(-flight.speed * 0.35).add(new THREE.Vector3(0, -12, 0));
+    if (audio) audio.flare();
     return true;
   }
 
@@ -157,44 +229,126 @@ export class Combat {
     this.fireCooldown = 0.09;
     this.ammo--;
     this.gunSide *= -1;
+    this.recoil = 1;
+    const origin = aircraftPoint(flight, this.gunSide * 3.2, -0.35, 1.5);
     const slot = this.tracerPool.find((t) => t.life <= 0);
-    if (!slot) return;
-    const origin = flight.position.clone().add(new THREE.Vector3(this.gunSide * 3, -0.4, 0));
-    const dir = aimPoint.clone().sub(origin).normalize();
-    slot.mesh.position.copy(origin);
-    slot.mesh.lookAt(origin.clone().add(dir));
-    slot.vel.copy(dir).multiplyScalar(420);
-    slot.life = 1.6;
-    slot.mesh.visible = true;
+    if (slot) {
+      const dir = aimPoint.clone().sub(origin);
+      if (dir.lengthSq() < 1) dir.copy(flight.forward());
+      dir.normalize();
+      slot.mesh.position.copy(origin);
+      slot.mesh.lookAt(origin.clone().add(dir));
+      slot.vel.copy(dir).multiplyScalar(460);
+      slot.life = 1.5;
+      slot.mesh.visible = true;
+    }
+    this.muzzles.forEach((m, i) => {
+      const p = aircraftPoint(flight, (i === 0 ? -1 : 1) * 3.4, -0.3, 2.2);
+      m.position.copy(p);
+    });
+    this.muzzleLife = 0.045;
     audio.cannon();
   }
 
   explodeAt(pos, audio) {
     this.boom.position.copy(pos);
-    this.boomLife = 0.5;
+    this.boomLife = 0.55;
     audio.explosion();
   }
 
-  damageTarget(t, dmg, audio) {
+  dustAt(pos) {
+    const slot = this.dustPool.find((d) => d.life <= 0);
+    if (!slot) return;
+    slot.life = 0.35;
+    slot.mesh.visible = true;
+    slot.mesh.position.copy(pos);
+    slot.mesh.scale.set(1, 1, 1);
+    slot.mesh.material.opacity = 0.45;
+    slot.mesh.material.color.set(0xcbbba4);
+  }
+
+  puff(pool, pos, life, scale, color) {
+    const slot = pool.find((d) => d.life <= 0);
+    if (!slot) return;
+    slot.life = life;
+    slot.mesh.visible = true;
+    slot.mesh.position.copy(pos);
+    slot.mesh.scale.setScalar(scale);
+    slot.mesh.material.opacity = 0.55;
+    slot.mesh.material.color.set(color);
+  }
+
+  hurtAircraft(flight, amount, shake) {
+    flight.hull = Math.max(0, flight.hull - amount);
+    flight.hitFlash = 1;
+    flight.shake = Math.max(flight.shake, shake);
+    if (flight.hull <= 0) flight.crashed = true;
+  }
+
+  launchFlak(battery, flight) {
+    const slot = this.flakPool.find((f) => f.life <= 0);
+    if (!slot) return;
+    const lead = flight.forward().multiplyScalar(flight.speed * 0.5);
+    const dest = flight.position.clone().add(lead).add(new THREE.Vector3(
+      (Math.random() - 0.5) * 56,
+      (Math.random() - 0.5) * 28,
+      (Math.random() - 0.5) * 56,
+    ));
+    const origin = new THREE.Vector3(battery.x, battery.y + 4, battery.z);
+    const vel = dest.sub(origin);
+    const dist = Math.max(vel.length(), 1);
+    vel.multiplyScalar(Math.min(240, dist / 0.95) / dist);
+    slot.vel.copy(vel);
+    slot.mesh.position.copy(origin);
+    slot.mesh.scale.setScalar(0.28);
+    slot.mesh.material.color.set(0xffd27a);
+    slot.mesh.material.opacity = 1;
+    slot.mesh.visible = true;
+    slot.life = 1.05;
+    slot.state = 'fly';
+  }
+
+  damageTarget(t, dmg, audio, flight) {
     t.hpLeft -= dmg;
+    this.hitMarker = 0.14;
     if (t.hpLeft <= 0 && t.alive) {
       t.alive = false;
-      t.group.rotation.z = 0.5;
+      if (t.group) t.group.rotation.z = 0.5;
       this.destroyed++;
-      this.scoreGained += t.kind === 'depot' ? 200 : 250;
-      this.explodeAt(t.group.position.clone().add(new THREE.Vector3(0, 8, 0)), audio);
+      this.scoreGained += t.kind === 'truck' ? 80 : t.kind === 'depot' ? 200 : 250;
+      const at = t.group ? t.group.position.clone().add(new THREE.Vector3(0, 8, 0)) : new THREE.Vector3(t.x, t.y, t.z);
+      this.explodeAt(at, audio);
+      if (flight) flight.shake = Math.max(flight.shake, 0.4);
+      if (t.smoke) t.smoke.material.opacity = 0.5;
     }
   }
 
   update(dt, flight, aimPoint, firing, audio) {
     this.fireCooldown -= dt;
     this.flareCooldown -= dt;
+    this.hitMarker = Math.max(0, this.hitMarker - dt);
+    this.recoil = Math.max(0, this.recoil - dt * 7);
     if (this.boomLife > 0) {
       this.boomLife -= dt;
-      const s = 1 + (0.5 - this.boomLife) * 3;
+      const s = 1 + (0.55 - this.boomLife) * 4;
       this.boom.scale.set(s, s, s);
-      this.boom.material.opacity = clamp(this.boomLife * 1.6, 0, 0.85);
+      this.boom.material.opacity = clamp(this.boomLife * 1.5, 0, 0.85);
     } else this.boom.material.opacity = 0;
+
+    if (this.muzzleLife > 0) {
+      this.muzzleLife -= dt;
+      const a = clamp(this.muzzleLife / 0.045, 0, 1);
+      for (const m of this.muzzles) m.material.opacity = a;
+    } else {
+      for (const m of this.muzzles) m.material.opacity = 0;
+    }
+
+    for (const t of this.targets) {
+      if (!t.alive && t.smoke.material.opacity > 0) {
+        t.smoke.rotation.y += dt * 0.4;
+        t.smoke.material.opacity = 0.42 + Math.sin(performance.now() / 400) * 0.06;
+      }
+    }
 
     const convoyT = performance.now() / 1000;
     for (const truck of this.trucks) {
@@ -206,7 +360,7 @@ export class Combat {
       truck.x = x; truck.z = z; truck.y = truck.group.position.y + 2;
     }
 
-    if (firing && flight.airborne) this.fire(flight, aimPoint, audio);
+    if (firing && flight.airborne && !flight.crashed) this.fire(flight, aimPoint, audio);
 
     for (const slot of this.tracerPool) {
       if (slot.life <= 0) continue;
@@ -217,15 +371,17 @@ export class Combat {
       let hit = false;
       for (const t of [...this.targets, ...this.trucks]) {
         if (!t.alive) continue;
-        const d = Math.hypot(p.x - t.x, p.y - t.y, p.z - t.z);
-        if (d < 22) {
-          this.damageTarget(t, 12, audio);
+        const tx = t.x;
+        const ty = t.y || 0;
+        const tz = t.z;
+        if (Math.hypot(p.x - tx, p.y - ty, p.z - tz) < (t.kind === 'truck' ? 8 : 16)) {
+          this.damageTarget(t, t.kind === 'truck' ? 10 : 12, audio, flight);
           hit = true;
           break;
         }
       }
       if (hit || p.y <= ground + 0.5 || slot.life <= 0) {
-        if (p.y <= ground + 0.5 && !hit) this.explodeAt(p.clone(), audio);
+        if (!hit && p.y <= ground + 0.5) this.dustAt(p);
         slot.life = 0;
         slot.mesh.visible = false;
       }
@@ -235,21 +391,51 @@ export class Combat {
       this.flareLife -= dt;
       this.flareVel.y -= 6 * dt;
       this.flareMesh.position.addScaledVector(this.flareVel, dt);
+      this.flareMesh.scale.setScalar(1 + (3.2 - this.flareLife) * 0.35);
       if (this.flareLife <= 0) this.flareMesh.visible = false;
     }
 
+    for (const f of this.flakPool) {
+      if (f.life <= 0) continue;
+      f.life -= dt;
+      if (f.state === 'fly') {
+        f.mesh.position.addScaledVector(f.vel, dt);
+        if (f.life <= 0) {
+          f.state = 'burst';
+          f.life = 0.42;
+          f.mesh.material.color.set(0x2e2b28);
+          const d = f.mesh.position.distanceTo(flight.position);
+          if (d < 18 && flight.airborne) {
+            this.hurtAircraft(flight, 8, 1.35);
+            audio.explosion();
+          } else audio.flak();
+        }
+      } else {
+        const s = 1.4 + (0.42 - f.life) * 7;
+        f.mesh.scale.setScalar(s);
+        f.mesh.material.opacity = clamp(f.life * 1.5, 0, 0.65);
+        if (f.life <= 0) f.mesh.visible = false;
+      }
+    }
+
     this.missileWarning = false;
-    if (!this.missileActive && flight.airborne) {
+    if (!this.missileActive && flight.airborne && !flight.crashed) {
       for (const t of this.targets) {
         if (!t.alive || t.kind !== 'aaa') continue;
         const d = Math.hypot(t.x - flight.position.x, t.z - flight.position.z);
+        t.flakTimer -= dt;
+        if (d < 620 && t.flakTimer <= 0) {
+          t.flakTimer = 2.3 + Math.random() * 1.4;
+          this.launchFlak(t, flight);
+        }
         t.missileTimer -= dt;
         if (d < 1050 && t.missileTimer <= 0) {
-          t.missileTimer = 6 + Math.random() * 4;
+          t.missileTimer = 7 + Math.random() * 4;
           this.missileActive = true;
+          this.nearMissed = false;
           this.missile.visible = true;
           this.missile.position.set(t.x, t.y + 6, t.z);
-          this.missileVel.set(0, 40, 0);
+          this.missileVel.set(0, 48, 0);
           audio.missileWarn();
           break;
         }
@@ -258,27 +444,60 @@ export class Combat {
     if (this.missileActive) {
       this.missileWarning = true;
       const targetPos = this.flareLife > 0 ? this.flareMesh.position : flight.position;
-      const desired = targetPos.clone().sub(this.missile.position).normalize().multiplyScalar(150);
-      this.missileVel.lerp(desired, clamp(dt * 2.2, 0, 1));
+      const desired = targetPos.clone().sub(this.missile.position).normalize().multiplyScalar(155);
+      this.missileVel.lerp(desired, clamp(dt * 2.1, 0, 1));
       this.missile.position.addScaledVector(this.missileVel, dt);
       this.missile.lookAt(this.missile.position.clone().add(this.missileVel));
+      this.trailAcc -= dt;
+      if (this.trailAcc <= 0) {
+        this.trailAcc = 0.035;
+        this.puff(this.trail, this.missile.position, 0.45, 1, 0xffe2b0);
+      }
       const dFlare = this.missile.position.distanceTo(this.flareMesh.position);
       const dPlane = this.missile.position.distanceTo(flight.position);
-      if (this.flareLife > 0 && dFlare < 14) {
-        this.missileActive = false;
-        this.missile.visible = false;
-        this.explodeAt(this.missile.position.clone(), audio);
+      if (dPlane < 36) flight.shake = Math.max(flight.shake, (36 - dPlane) / 36 * 0.7);
+      if (!this.nearMissed && dPlane < 24 && this.flareLife <= 0) {
+        this.nearMissed = true;
+        audio.whoosh();
+      }
+      let end = false;
+      if (this.flareLife > 0 && dFlare < 16) {
+        end = true;
         this.scoreGained += 40;
+        this.explodeAt(this.missile.position.clone(), audio);
       } else if (dPlane < 11) {
-        this.missileActive = false;
-        this.missile.visible = false;
-        flight.hull = Math.max(0, flight.hull - 16);
+        end = true;
+        this.hurtAircraft(flight, 18, 2.1);
         this.explodeAt(flight.position.clone(), audio);
       } else if (this.missile.position.y < Math.max(terrainHeight(this.missile.position.x, this.missile.position.z), 0)) {
+        end = true;
+        this.dustAt(this.missile.position);
+      }
+      if (end) {
         this.missileActive = false;
         this.missile.visible = false;
       }
     }
+
+    if (flight.hull < 58 && flight.airborne && !flight.crashed) {
+      this.hurtAcc -= dt;
+      if (this.hurtAcc <= 0) {
+        this.hurtAcc = 0.09;
+        const behind = aircraftPoint(flight, (Math.random() - 0.5) * 2, 0.4, 6);
+        this.puff(this.hurt, behind, 0.7, 0.8 + (58 - flight.hull) / 70, 0x2c2a28);
+      }
+    }
+    for (const slot of this.dustPool) this.fadePuff(slot, dt, 3);
+    for (const slot of this.trail) this.fadePuff(slot, dt, 2);
+    for (const slot of this.hurt) this.fadePuff(slot, dt, 8);
+  }
+
+  fadePuff(slot, dt, rise) {
+    if (slot.life <= 0) return;
+    slot.life -= dt;
+    slot.mesh.position.y += dt * rise;
+    slot.mesh.material.opacity = clamp(slot.life * 1.3, 0, 0.55);
+    if (slot.life <= 0) slot.mesh.visible = false;
   }
 
   stageTracers(flight, aimPoint) {

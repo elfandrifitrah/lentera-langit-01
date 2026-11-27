@@ -1,9 +1,9 @@
-// Isometric diorama chase camera and cockpit camera.
+// Isometric diorama chase camera, cockpit camera, and the gunner sight.
 import * as THREE from 'three';
 import { clamp } from './config.js';
 
-const ISO_ELEVATION = Math.atan(1 / Math.SQRT2); // 35.264 degrees
-const ISO_DISTANCE = 30;
+const ISO_ELEVATION = Math.atan(1 / Math.SQRT2);
+const ISO_DISTANCE = 36;
 const ISO_AZIMUTH_OFFSET = 0.35;
 
 export class CameraRig {
@@ -23,10 +23,18 @@ export class CameraRig {
   }
 
   setFov(fov) {
-    if (this.camera.fov !== fov) {
+    if (Math.abs(this.camera.fov - fov) > 0.05) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  kick(flight) {
+    const s = flight.shake || 0;
+    if (s < 0.03) return;
+    this.camera.position.x += (Math.random() - 0.5) * s * 1.7;
+    this.camera.position.y += (Math.random() - 0.5) * s * 1.15;
+    this.camera.position.z += (Math.random() - 0.5) * s * 1.7;
   }
 
   update(dt, flight, aircraftGroup) {
@@ -40,6 +48,7 @@ export class CameraRig {
       this.camera.position.copy(pos).add(side).add(new THREE.Vector3(0, 0.4, 0));
       this.camera.up.set(0, 1, 0);
       this.camera.lookAt(look);
+      this.kick(flight);
       return;
     }
     if (this.mode === 'cockpit') {
@@ -49,9 +58,10 @@ export class CameraRig {
       const look = flight.forward().multiplyScalar(60).add(eye);
       this.camera.up.set(Math.sin(flight.roll) * -1, Math.cos(flight.roll), 0);
       this.camera.lookAt(look);
+      this.kick(flight);
       return;
     }
-    this.setFov(52);
+    this.setFov(50 + clamp(flight.speed, 0, 75) * 0.1);
     const azimuth = flight.heading + Math.PI - ISO_AZIMUTH_OFFSET;
     const horiz = Math.cos(this.elevation) * this.distance;
     const desired = pos.clone().add(new THREE.Vector3(
@@ -60,11 +70,14 @@ export class CameraRig {
       Math.cos(azimuth) * horiz,
     ));
     if (!this.ready) { this.smoothed.copy(desired); this.ready = true; }
-    const k = clamp(dt * 3.2, 0, 1);
+    const k = clamp(dt * 3.4, 0, 1);
     this.smoothed.lerp(desired, k);
     this.camera.position.copy(this.smoothed);
-    this.camera.up.set(0, 1, 0);
-    const look = pos.clone().addScaledVector(flight.forward(), this.lookAhead).add(new THREE.Vector3(0, 1, 0));
+    const lean = Math.sin(flight.roll) * 0.22;
+    this.camera.up.set(lean, 1, 0);
+    const lead = this.lookAhead + flight.speed * 0.1;
+    const look = pos.clone().addScaledVector(flight.forward(), lead).add(new THREE.Vector3(0, 1, 0));
     this.camera.lookAt(look);
+    this.kick(flight);
   }
 }
