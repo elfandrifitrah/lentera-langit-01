@@ -11,6 +11,8 @@ export class CameraRig {
     this.camera = camera;
     this.mode = 'chase';
     this.distance = ISO_DISTANCE;
+    this.elevation = ISO_ELEVATION;
+    this.lookAhead = 12;
     this.smoothed = new THREE.Vector3();
     this.ready = false;
   }
@@ -51,10 +53,10 @@ export class CameraRig {
     }
     this.setFov(52);
     const azimuth = flight.heading + Math.PI - ISO_AZIMUTH_OFFSET;
-    const horiz = Math.cos(ISO_ELEVATION) * this.distance;
+    const horiz = Math.cos(this.elevation) * this.distance;
     const desired = pos.clone().add(new THREE.Vector3(
       Math.sin(azimuth) * horiz,
-      Math.sin(ISO_ELEVATION) * this.distance,
+      Math.sin(this.elevation) * this.distance,
       Math.cos(azimuth) * horiz,
     ));
     if (!this.ready) { this.smoothed.copy(desired); this.ready = true; }
@@ -62,7 +64,7 @@ export class CameraRig {
     this.smoothed.lerp(desired, k);
     this.camera.position.copy(this.smoothed);
     this.camera.up.set(0, 1, 0);
-    const look = pos.clone().addScaledVector(flight.forward(), 12).add(new THREE.Vector3(0, 1, 0));
+    const look = pos.clone().addScaledVector(flight.forward(), this.lookAhead).add(new THREE.Vector3(0, 1, 0));
     this.camera.lookAt(look);
   }
 }
