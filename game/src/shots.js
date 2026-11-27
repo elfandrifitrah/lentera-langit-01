@@ -7,9 +7,9 @@ export function applyShotPose(shot, flight, cameraRig, missions, combat) {
   if (!shot) return false;
   if (shot === 'cover') {
     flight.position.set(-230, 265, -120);
-    flight.heading = Math.atan2(-700 - flight.position.x, -500 - flight.position.z);
+    flight.heading = Math.atan2(-300 - flight.position.x, 320 - flight.position.z);
     flight.pitch = -0.04;
-    flight.roll = -0.3;
+    flight.roll = -0.18;
     flight.speed = 46;
     flight.throttle = 0.8;
     flight.rpm = 0.8;
@@ -25,7 +25,9 @@ export function applyShotPose(shot, flight, cameraRig, missions, combat) {
       combat.boom.scale.set(2.2, 2.2, 2.2);
     }
     cameraRig.mode = 'chase';
-    cameraRig.distance = 36;
+    cameraRig.distance = 30;
+    cameraRig.elevation = 0.38;
+    cameraRig.lookAhead = 18;
     cameraRig.ready = false;
     return true;
   }
@@ -44,7 +46,7 @@ export function applyShotPose(shot, flight, cameraRig, missions, combat) {
     return true;
   }
   if (shot === 'gunner') {
-    flight.position.set(-470, 195, 150);
+    flight.position.set(-362, 58, 272);
     flight.heading = Math.atan2(-300 - flight.position.x, 320 - flight.position.z);
     flight.pitch = 0.02;
     flight.roll = -0.42;
@@ -59,12 +61,12 @@ export function applyShotPose(shot, flight, cameraRig, missions, combat) {
       combat.gunner = true;
       combat.mouseX = 640;
       combat.mouseY = 380;
-      combat.stageTracers(flight, new THREE.Vector3(-300, 20, 320));
-      combat.boom.position.set(-300, 18, 320);
+      combat.stageTracers(flight, new THREE.Vector3(-300, 16, 320));
+      combat.boom.position.set(-300, 14, 320);
       combat.boomLife = 0.45;
       combat.boom.material.opacity = 0.8;
       combat.boom.scale.set(2, 2, 2);
-      cameraRig.aimPoint = new THREE.Vector3(-300, 20, 320);
+      cameraRig.aimPoint = new THREE.Vector3(-300, 16, 320);
     }
     cameraRig.mode = 'gunner';
     cameraRig.ready = false;
