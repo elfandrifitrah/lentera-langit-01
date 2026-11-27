@@ -5,7 +5,7 @@ import { buildTerrain, buildWater, buildSky, terrainHeight } from './terrain.js'
 import { buildAircraft } from './aircraft.js';
 import { FlightModel } from './flight-model.js';
 import { CameraRig } from './camera-rig.js';
-import { buildRunway, buildRings, buildProps, RING_PATH } from './world-props.js';
+import { buildRunway, buildRings, buildProps, createLanternShow, RING_PATH } from './world-props.js';
 import { Missions } from './missions.js';
 import { Combat } from './combat.js';
 import { GameAudio } from './audio.js';
@@ -41,6 +41,20 @@ ringSet.rings.forEach((ring, i) => {
   ring.lookAt(prev.x, prev.y, prev.z);
 });
 scene.add(buildProps());
+const lanterns = createLanternShow(scene);
+const beacon = new THREE.Group();
+const beaconBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.1, 1.1, 180, 8, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xff8c2e, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
+);
+beaconBeam.position.y = 70;
+const beaconMark = new THREE.Mesh(
+  new THREE.ConeGeometry(5.5, 9, 4),
+  new THREE.MeshBasicMaterial({ color: 0xff8c2e }),
+);
+beaconMark.rotation.x = Math.PI;
+beacon.add(beaconBeam, beaconMark);
+scene.add(beacon);
 
 const aircraft = buildAircraft();
 scene.add(aircraft.group);
@@ -55,34 +69,69 @@ const hud = new Hud();
 
 const params = new URLSearchParams(window.location.search);
 const shotMode = applyShotPose(params.get('shot'), flight, cameraRig, missions, combat);
+hud.shotMode = shotMode;
 if (params.get('shot') === 'ash') scene.fog = new THREE.Fog(0x9a8f85, 100, 1000);
+const briefing = document.getElementById('brief');
+if (shotMode && briefing) briefing.style.display = 'none';
+if (params.get('debug') === '1') window.__lentera = { flight, combat, missions, cameraRig };
 
 const keys = new Set();
-let mouseSteer = { pitch: 0, roll: 0, active: false };
+const stick = { pitch: 0, roll: 0 };
+const help = document.getElementById('help');
+let helpDone = false;
+function dismissBrief() {
+  if (briefing) briefing.style.display = 'none';
+}
 window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   audio.start();
-  if (e.code === 'KeyV') cameraRig.toggle();
+  dismissBrief();
+  if (e.code === 'KeyV' && !combat.gunner) cameraRig.toggle();
   if (e.code === 'KeyT') {
-    combat.gunner = !combat.gunner;
-    cameraRig.mode = combat.gunner ? 'gunner' : 'chase';
+    if (!combat.gunner) {
+      cameraRig.prevMode = cameraRig.mode;
+      combat.gunner = true;
+      cameraRig.mode = 'gunner';
+      if (document.pointerLockElement) document.exitPointerLock();
+    } else {
+      combat.gunner = false;
+      cameraRig.mode = cameraRig.prevMode === 'cockpit' ? 'cockpit' : 'chase';
+    }
     cameraRig.ready = false;
   }
-  if (e.code === 'KeyX') combat.deployFlare(flight);
+  if (e.code === 'KeyX') combat.deployFlare(flight, audio);
   if (e.code === 'KeyF') flight.flaps = !flight.flaps;
   if (e.code === 'Space') { missions.dropCrate(flight); e.preventDefault(); }
-  if (e.code === 'KeyR') { flight.reset(); missions.reset(); combat.reset(); ringSet.rings.forEach((r) => r.material.color.set(0xff8c2e)); }
+  if (e.code === 'KeyR') {
+    flight.reset();
+    missions.reset();
+    combat.reset();
+    helpDone = false;
+    cameraRig.mode = 'chase';
+    cameraRig.ready = false;
+    ringSet.rings.forEach((r) => r.material.color.set(0xff8c2e));
+  }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 let firing = false;
-window.addEventListener('pointermove', (e) => {
-  combat.mouseX = e.clientX;
-  combat.mouseY = e.clientY;
-  mouseSteer.active = true;
-  mouseSteer.roll = clamp((e.clientX / window.innerWidth - 0.5) * 2.4, -1, 1);
-  mouseSteer.pitch = clamp((0.5 - e.clientY / window.innerHeight) * 2.0, -1, 1);
+window.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement === canvas) {
+    stick.roll = clamp(stick.roll + e.movementX * 0.0024, -1, 1);
+    stick.pitch = clamp(stick.pitch - e.movementY * 0.002, -1, 1);
+  } else {
+    combat.mouseX = e.clientX;
+    combat.mouseY = e.clientY;
+  }
 });
-window.addEventListener('pointerdown', () => { audio.start(); firing = true; });
+window.addEventListener('pointerdown', () => {
+  audio.start();
+  dismissBrief();
+  firing = true;
+  if (!shotMode && !combat.gunner && document.pointerLockElement !== canvas) {
+    const lock = canvas.requestPointerLock();
+    if (lock && lock.catch) lock.catch(() => {});
+  }
+});
 window.addEventListener('pointerup', () => { firing = false; });
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -100,8 +149,8 @@ function readInput() {
   if (keys.has('ArrowRight') || keys.has('KeyD')) input.roll += 1;
   if (keys.has('KeyQ')) input.yaw -= 1;
   if (keys.has('KeyE')) input.yaw += 1;
-  if (input.pitch === 0 && mouseSteer.active) input.pitch = mouseSteer.pitch;
-  if (input.roll === 0 && mouseSteer.active) input.roll = mouseSteer.roll;
+  input.pitch = clamp(input.pitch + stick.pitch, -1, 1);
+  input.roll = clamp(input.roll + stick.roll, -1, 1);
   return input;
 }
 
@@ -143,7 +192,7 @@ function frame() {
   const aimPoint = shotMode && cameraRig.aimPoint ? cameraRig.aimPoint : computeAimPoint();
   cameraRig.aimPoint = aimPoint;
   if (!shotMode) {
-    if (combat.gunner) combat.autopilot(dt, flight);
+    if (combat.gunner && !flight.crashed) combat.autopilot(dt, flight);
     else flight.step(dt, readInput());
     combat.update(dt, flight, aimPoint, firing || keys.has('KeyG'), audio);
     missions.update(dt, flight, ringSet.rings, audio, combat);
@@ -161,15 +210,36 @@ function frame() {
   aircraft.blob.position.set(flight.position.x, groundY + 0.5, flight.position.z);
   aircraft.blob.material.opacity = clamp(0.3 - (flight.position.y - groundY) * 0.001, 0.05, 0.3);
   aircraft.group.visible = cameraRig.mode !== 'cockpit' && cameraRig.mode !== 'gunner';
+  const kick = combat.recoil || 0;
+  aircraft.gunL.rotation.z = kick * 0.12;
+  aircraft.gunR.rotation.z = -kick * 0.12;
   water.material.uniforms.uTime.value = t;
+  if (missions.pendingBurst) {
+    lanterns.burst(missions.pendingBurst.x, missions.pendingBurst.y, missions.pendingBurst.z);
+    missions.pendingBurst = null;
+  }
+  lanterns.update(dt);
+  const spring = Math.max(0, 1 - dt * 3.4);
+  stick.pitch *= spring;
+  stick.roll *= spring;
   ringSet.rings.forEach((ring, i) => {
-    const s = 1 + Math.sin(t * 2.4 + i) * 0.04;
+    const next = missions.stage === 0 && i === missions.ringIndex;
+    const pulse = next ? 4.6 : 2.4;
+    const amp = next ? 0.1 : 0.035;
+    const base = next ? 1.12 : 1;
+    const s = base + Math.sin(t * pulse + i) * amp;
     ring.scale.set(s, s, s);
   });
+  if (flight.airborne) helpDone = true;
+  if (help) help.style.display = shotMode || helpDone ? 'none' : '';
+  const tgt = missions.currentTarget(flight, combat);
+  beacon.visible = !shotMode && !missions.done;
+  beacon.position.set(tgt.x, tgt.y || 40, tgt.z);
+  beaconMark.position.y = 16 + Math.sin(t * 3) * 2.4;
   updatePapi();
   cameraRig.update(dt, flight, aircraft.group);
-  hud.update(flight, missions, combat, camera);
-  audio.update(flight, missions);
+  hud.update(flight, missions, combat, camera, aimPoint);
+  audio.update(flight, missions, combat);
   renderer.render(scene, camera);
 }
 frame();

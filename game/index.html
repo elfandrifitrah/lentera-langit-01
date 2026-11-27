@@ -41,8 +41,21 @@
   body.gunner #game-canvas { filter: hue-rotate(72deg) saturate(1.7) brightness(1.08) contrast(1.12); }
   body.gunner #nightvision { display: block; }
   body.gunner #markers { display: block; }
-  #help { top: 162px; left: 50%; transform: translateX(-50%); font-size: 13px; background: rgba(38,26,18,.5); padding: 5px 12px; border-radius: 10px; white-space: nowrap; }
-  #stall { top: 170px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 26px; font-weight: bold; display: none; }
+  #help { top: 146px; left: 50%; transform: translateX(-50%); font-size: 13px; background: rgba(38,26,18,.5); padding: 5px 12px; border-radius: 10px; white-space: nowrap; }
+  #stall { top: 214px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 26px; font-weight: bold; display: none; }
+  #gforce { top: 248px; left: 50%; transform: translateX(-50%); color: #ffd696; font-size: 18px; font-weight: bold; letter-spacing: 1px; display: none; }
+  #hurt { inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 46%, rgba(150, 20, 12, 0.72) 100%); }
+  #hitmark { left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid #fff7e6; transform: rotate(45deg); display: none; }
+  #arrow { width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 16px solid #ff8c2e; filter: drop-shadow(0 2px 2px rgba(0,0,0,.55)); display: none; }
+  #arrow-dist { font-size: 12px; letter-spacing: 1px; color: #ffd696; display: none; transform: translate(-50%, 0); }
+  #message.show-grade { top: 28%; font-size: 42px; letter-spacing: 1px; background: rgba(38,26,18,.78); border: 2px solid #ffb35c; border-radius: 16px; padding: 12px 22px; }
+  #brief { inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(40, 18, 8, 0.28), rgba(40, 18, 8, 0.45)); pointer-events: none; }
+  .brief-card { width: min(560px, calc(100% - 40px)); background: rgba(38,26,18,.82); border: 2px solid rgba(255,214,150,.85); border-radius: 18px; padding: 22px 26px 18px; text-align: center; color: #fff7e6; }
+  .brief-kicker { letter-spacing: 4px; color: #ffd696; font-size: 13px; }
+  .brief-card h1 { margin: 6px 0 8px; font-size: 40px; font-weight: bold; }
+  .brief-card p { margin: 0 0 8px; font-size: 18px; line-height: 1.35; }
+  .brief-keys { color: #ffd696; font-size: 14px; }
+  #help { white-space: normal; text-align: center; max-width: min(920px, calc(100% - 24px)); }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -57,6 +70,7 @@
 </div>
 <div class="hud" id="mission-banner">Lentera Langit</div>
 <div class="hud" id="stall">STALL</div>
+<div class="hud" id="gforce">1.0 G</div>
 <div class="hud" id="bars">
   <div class="bar-row">FUEL<div class="bar"><div class="bar-fill" id="fuel-fill"></div></div></div>
   <div class="bar-row">HULL<div class="bar"><div class="bar-fill" id="hull-fill"></div></div></div>
@@ -96,10 +110,22 @@
 </div>
 <div class="hud" id="weapons">CANNON 320 · FLARES 12</div>
 <div class="hud" id="reticle"></div>
+<div class="hud" id="hitmark"></div>
+<div class="hud" id="arrow"></div>
+<div class="hud" id="arrow-dist"></div>
+<div class="hud" id="hurt"></div>
 <div class="hud" id="nightvision"></div>
 <div class="hud" id="markers"></div>
 <div class="hud" id="message"></div>
-<div class="hud" id="help">W/S throttle · Arrows or mouse steer · Click fire cannons · X flares · T gunner mode · V camera · F flaps · Space drop crate · R restart</div>
+<div class="hud" id="help">Click to fly · mouse or arrows steer · W throttle · pull up to rotate · G fire · X flares · T gunner · V camera · F flaps · Space crate · R restart</div>
+<div id="brief">
+  <div class="brief-card">
+    <div class="brief-kicker">DAWN SORTIE</div>
+    <h1>Lentera Langit</h1>
+    <p>Light five rings. Silence the guns. Feed the village. Bring her home before the tanks run dry.</p>
+    <p class="brief-keys">Click to fly. The mouse is a spring stick. W throttle, pull up to rotate, S brakes once you are down.</p>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

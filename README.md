@@ -24,10 +24,12 @@ Land before the fuel runs dry.
 
 | Key | Action |
 | --- | --- |
-| W / S | Throttle up and down |
-| Arrow keys or mouse | Steer pitch and roll |
+| Click | Fly. Captures the mouse and fires the cannons |
+| Mouse | Spring stick for pitch and roll. Esc releases it |
+| W / S | Throttle up and down. S brakes on the ground |
+| Arrow keys or A / D | Steer pitch and roll |
 | Q / E | Yaw |
-| Mouse click or G | Fire the side cannons |
+| G | Fire the side cannons |
 | X | Deploy a flare decoy |
 | T | Gunner mode with autopilot circuit |
 | V | Chase and cockpit cameras |
@@ -37,16 +39,17 @@ Land before the fuel runs dry.
 
 ## Flight model
 
-- Throttle, pitch, roll, and yaw with a coordinated turn from bank.
-- Stall below stall speed with nose drop and a warning lamp.
-- Ground effect, fuel burn rising with throttle, hull damage on hard contact.
-- Flaps lower the stall speed and shorten the landing roll.
+- Throttle, pitch, roll, and yaw. The stick springs toward a throttle trim, so the nose holds its climb.
+- A banked turn bleeds speed and raises the stall. Stall drops the nose, buffets the wings, and lights the lamp.
+- Ground effect softens the last metres of a descent. Fuel burn rises with throttle. A hard touchdown takes hull.
+- Flaps lower the stall speed. Chop the throttle and brake to roll the landing out.
 
 ## Combat
 
 - Four turboprops, side cannons on both flanks, and flare pods under the wings.
 - Ground targets: a radar station, two AAA batteries, a supply depot, and a truck convoy.
-- AAA batteries launch homing missiles inside their range.
+- AAA batteries throw flak when you are close and launch homing missiles from farther out.
+- A piper marks where the cannons will strike. Misses kick up dust. Kills leave a smoke column.
 - A flare decoy pulls a missile off the aircraft.
 - Gunner mode hands the flying to an autopilot circuit while the player aims with the mouse.
 
@@ -59,7 +62,7 @@ Land before the fuel runs dry.
 
 ## Sortie
 
-1. Fly through five orange rings.
+1. Fly through five orange rings. Each ring you light sends lanterns up.
 2. Destroy the four installations.
 3. Drop the crate on the village marker.
 4. Land on the runway or on the water beside the boat.

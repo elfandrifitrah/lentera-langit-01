@@ -82,29 +82,84 @@ export class GameAudio {
     osc.stop(time + 0.25);
   }
 
-  update(flight, missions) {
+  noiseBurst(time, duration, freq, gainValue) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq, time);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(90, freq * 0.22), time + duration);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gainValue, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    src.connect(filter).connect(g).connect(this.master);
+    src.start(time);
+    src.stop(time + duration + 0.02);
+  }
+
+  update(flight, missions, combat) {
     if (!this.ctx) return;
     const ctx = this.ctx;
-    this.engineOsc.frequency.value = 55 + flight.rpm * 130;
-    this.engineGain.gain.value = flight.crashed ? 0 : 0.03 + flight.rpm * 0.07;
+    this.engineOsc.frequency.value = 48 + flight.rpm * 150;
+    this.engineGain.gain.value = flight.crashed ? 0 : 0.028 + flight.rpm * 0.075;
     this.windGain.gain.value = Math.min(0.12, flight.speed * 0.0016);
-    this.intensity = missions.stage === 2 ? 0.8 : flight.airborne ? 0.6 : 0.3;
-    const stepDur = 60 / 92 / 2;
+    const fighting = combat && (combat.missileWarning || combat.destroyed > 0);
+    this.intensity = missions.done ? 0.9 : fighting ? 0.75 : flight.airborne ? 0.55 : 0.28;
+    const stepDur = 60 / (missions.stage === 1 ? 104 : 92) / 2;
     while (this.nextNoteTime < ctx.currentTime + 0.18) {
       const idx = this.step % MOTIF.length;
       const note = SCALE[MOTIF[idx]];
-      this.pluck(note, this.nextNoteTime, 0.05 + this.intensity * 0.06);
+      this.pluck(note, this.nextNoteTime, 0.045 + this.intensity * 0.055);
       if (this.step % 4 === 0) this.drum(this.nextNoteTime);
       if (this.intensity > 0.65 && this.step % 2 === 0) this.pluck(note * 2, this.nextNoteTime, 0.02, 0.4);
       this.step++;
       this.nextNoteTime += stepDur;
     }
-    if (flight.stalled && this.step % 2 === 0) this.pluck(880, ctx.currentTime, 0.03, 0.12);
+    if (flight.stalled && (!this.nextStall || ctx.currentTime >= this.nextStall)) {
+      this.pluck(494, ctx.currentTime, 0.06, 0.09);
+      this.nextStall = ctx.currentTime + 0.18;
+    }
+    if (combat && combat.missileWarning && (!this.nextBeep || ctx.currentTime >= this.nextBeep)) {
+      this.pluck(880, ctx.currentTime, 0.07, 0.07);
+      this.nextBeep = ctx.currentTime + 0.26;
+    }
   }
 
   chime(index) { if (this.ctx) this.pluck(SCALE[index % SCALE.length] * 2, this.ctx.currentTime, 0.12, 0.9); }
-  cannon() { if (this.ctx) this.drum(this.ctx.currentTime, 0.05); }
-  explosion() { if (this.ctx) this.drum(this.ctx.currentTime, 0.4); }
+  cannon() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.noiseBurst(t, 0.07, 2100, 0.22);
+    this.drum(t);
+  }
+  explosion() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.noiseBurst(t, 0.48, 520, 0.42);
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(96, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.42);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.32, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.46);
+    osc.connect(g).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.5);
+  }
+  flak() {
+    if (!this.ctx) return;
+    this.noiseBurst(this.ctx.currentTime, 0.18, 900, 0.16);
+  }
+  whoosh() {
+    if (!this.ctx) return;
+    this.noiseBurst(this.ctx.currentTime, 0.22, 2400, 0.1);
+  }
+  flare() {
+    if (!this.ctx) return;
+    this.noiseBurst(this.ctx.currentTime, 0.28, 4200, 0.08);
+  }
   missileWarn() { if (this.ctx) this.pluck(880, this.ctx.currentTime, 0.08, 0.25); }
   thud() { if (this.ctx) this.drum(this.ctx.currentTime); }
   fanfare() {

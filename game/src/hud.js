@@ -75,6 +75,12 @@ export class Hud {
     };
     this.weapons = document.getElementById('weapons');
     this.reticle = document.getElementById('reticle');
+    this.hurt = document.getElementById('hurt');
+    this.arrow = document.getElementById('arrow');
+    this.arrowDist = document.getElementById('arrow-dist');
+    this.hitmark = document.getElementById('hitmark');
+    this.gforce = document.getElementById('gforce');
+    this.aimVec = new THREE.Vector3();
     const markerBox = document.getElementById('markers');
     this.markerDivs = [];
     for (let i = 0; i < 7; i++) {
@@ -90,7 +96,7 @@ export class Hud {
     this.lastTime = performance.now();
   }
 
-  update(flight, missions, combat, camera) {
+  update(flight, missions, combat, camera, aimPoint) {
     this.combat = combat;
     const now = performance.now();
     const dt = Math.max((now - this.lastTime) / 1000, 0.001);
@@ -119,12 +125,22 @@ export class Hud {
     this.alt.textContent = `${Math.round(altFt)} FT`;
     this.spd.textContent = `${Math.round(spdKt)} KT`;
     this.hdg.textContent = String(Math.round(heading)).padStart(3, '0');
-    this.banner.textContent = missions.message;
+    this.banner.textContent = missions.done && missions.grade ? 'Lentera Langit' : missions.message;
     this.stall.style.display = flight.stalled ? 'block' : 'none';
     this.fuel.style.width = `${clamp(flight.fuel, 0, 100)}%`;
     this.hull.style.width = `${clamp(flight.hull, 0, 100)}%`;
     this.thr.style.width = `${flight.throttle * 100}%`;
     this.message.textContent = missions.done ? missions.message : '';
+    this.message.classList.toggle('show-grade', !!(missions.done && missions.grade));
+    if (this.gforce) {
+      const showG = !this.shotMode && flight.airborne && flight.gForce > 1.18 && !flight.stalled;
+      this.gforce.style.display = showG ? 'block' : 'none';
+      this.gforce.textContent = `${(flight.gForce || 1).toFixed(1)} G`;
+    }
+    if (this.hurt) {
+      const hurtAmt = Math.max(flight.hitFlash || 0, flight.hull < 30 ? (30 - flight.hull) / 78 : 0);
+      this.hurt.style.opacity = this.shotMode ? '0' : String(clamp(hurtAmt, 0, 0.82));
+    }
     this.lamps.flaps.className = 'lamp' + (flight.flaps ? ' on' : '');
     this.lamps.stall.className = 'lamp warn' + (flight.stalled ? ' on' : '');
     this.lamps.fuellow.className = 'lamp warn' + (flight.fuel < 20 ? ' on' : '');
@@ -155,7 +171,20 @@ export class Hud {
       if (combat.gunner) {
         this.reticle.style.left = `${combat.mouseX || window.innerWidth / 2}px`;
         this.reticle.style.top = `${combat.mouseY || window.innerHeight / 2}px`;
+      } else if (!this.shotMode && flight.airborne && aimPoint && !missions.done) {
+        this.aimVec.copy(aimPoint).project(camera);
+        const on = this.aimVec.z < 1;
+        this.reticle.style.display = on ? 'block' : 'none';
+        this.reticle.style.left = `${(this.aimVec.x * 0.5 + 0.5) * window.innerWidth}px`;
+        this.reticle.style.top = `${(-this.aimVec.y * 0.5 + 0.5) * window.innerHeight}px`;
+      } else if (!combat.gunner) {
+        this.reticle.style.display = 'none';
       }
+      if (this.hitmark) {
+        this.hitmark.style.display = !this.shotMode && combat.hitMarker > 0 ? 'block' : 'none';
+        this.hitmark.style.opacity = String(clamp((combat.hitMarker || 0) / 0.14, 0, 1));
+      }
+      this.placeArrow(flight, missions, camera);
     }
 
     let ctx = this.gauges.spd;
@@ -289,6 +318,13 @@ export class Hud {
       ctx.arc(mx, my, r, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (this.combat) {
+      for (const t of this.combat.targets) {
+        const [mx, my] = toMap(t.x, t.z);
+        ctx.fillStyle = t.alive ? '#ff5a4e' : '#8d8d8d';
+        ctx.fillRect(mx - 2, my - 2, 4, 4);
+      }
+    }
     const target = missions.currentTarget(flight, this.combat);
     const [tx, ty] = toMap(target.x, target.z);
     ctx.fillStyle = '#ff8c2e';
@@ -307,5 +343,43 @@ export class Hud {
     ctx.closePath();
     ctx.fill();
     ctx.restore();
+  }
+
+  placeArrow(flight, missions, camera) {
+    if (!this.arrow) return;
+    if (this.shotMode || missions.done || !camera) {
+      this.arrow.style.display = 'none';
+      if (this.arrowDist) this.arrowDist.style.display = 'none';
+      return;
+    }
+    const tgt = missions.currentTarget(flight, this.combat);
+    this.aimVec.set(tgt.x, tgt.y || 40, tgt.z).project(camera);
+    let dx = this.aimVec.x;
+    let dy = this.aimVec.y;
+    const behind = this.aimVec.z > 1;
+    if (!behind && Math.abs(dx) < 0.72 && Math.abs(dy) < 0.68) {
+      this.arrow.style.display = 'none';
+      if (this.arrowDist) this.arrowDist.style.display = 'none';
+      return;
+    }
+    if (behind) { dx = -dx; dy = -dy; }
+    const mag = Math.hypot(dx, dy) || 1;
+    const nx = dx / mag;
+    const ny = dy / mag;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const px = (0.5 + nx * 0.42) * w;
+    const py = (0.5 - ny * 0.38) * h;
+    this.arrow.style.display = 'block';
+    this.arrow.style.left = `${px}px`;
+    this.arrow.style.top = `${py}px`;
+    this.arrow.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(nx, ny)}rad)`;
+    if (this.arrowDist) {
+      const dist = Math.round(Math.hypot(flight.position.x - tgt.x, flight.position.z - tgt.z));
+      this.arrowDist.style.display = 'block';
+      this.arrowDist.style.left = `${px}px`;
+      this.arrowDist.style.top = `${py + 18}px`;
+      this.arrowDist.textContent = `${dist} m`;
+    }
   }
 }
