@@ -1,4 +1,4 @@
-// Mission sequence: rings, combat strike, supply drop, landing finish, grading.
+// Ground raid: phase lines, compound clear, secure the cache, extract.
 import * as THREE from 'three';
 import { WORLD } from './config.js';
 import { RING_PATH } from './world-props.js';
@@ -7,14 +7,14 @@ import { terrainHeight } from './terrain.js';
 export class Missions {
   constructor(scene) {
     this.scene = scene;
-    this.reset();
     this.crate = new THREE.Mesh(
-      new THREE.BoxGeometry(1.6, 1.6, 1.6),
-      new THREE.MeshLambertMaterial({ color: 0xc98a3d }),
+      new THREE.BoxGeometry(1.2, 0.8, 0.9),
+      new THREE.MeshLambertMaterial({ color: 0x6d5a32 }),
     );
-    this.crate.visible = false;
+    const y = Math.max(terrainHeight(WORLD.village.x, WORLD.village.z), 0);
+    this.crate.position.set(WORLD.village.x, y + 0.4, WORLD.village.z);
     scene.add(this.crate);
-    this.crateVel = new THREE.Vector3();
+    this.reset();
   }
 
   reset() {
@@ -24,19 +24,11 @@ export class Missions {
     this.time = 0;
     this.done = false;
     this.grade = '';
-    this.message = 'Take off and fly through the orange rings';
-    this.crateDropped = false;
-    this.crateLanded = false;
+    this.message = 'Push the phase lines toward the compounds';
+    this.hold = 0;
     this.lastCombatScore = 0;
-  }
-
-  dropCrate(flight) {
-    if (this.stage !== 2 || this.crateDropped) return false;
-    this.crateDropped = true;
-    this.crate.visible = true;
-    this.crate.position.copy(flight.position);
-    this.crateVel.copy(flight.forward()).multiplyScalar(flight.speed * 0.7);
-    return true;
+    this.crateDropped = false;
+    this.crateLanded = true;
   }
 
   update(dt, flight, rings, audio, combat) {
@@ -46,61 +38,78 @@ export class Missions {
       this.score += combat.scoreGained - this.lastCombatScore;
       this.lastCombatScore = combat.scoreGained;
     }
+    if (flight.crashed) {
+      this.done = true;
+      this.grade = 'C';
+      this.message = 'Operator down. Press Enter to restart';
+      return;
+    }
     if (this.stage === 0) {
       const target = RING_PATH[this.ringIndex];
-      const d = flight.position.distanceTo(new THREE.Vector3(target.x, target.y, target.z));
-      if (d < 17) {
-        this.score += 200;
+      const d = Math.hypot(flight.position.x - target.x, flight.position.z - target.z);
+      this.message = `Phase line ${this.ringIndex + 1} of ${RING_PATH.length}`;
+      if (d < 12) {
+        this.score += 150;
         audio.chime(this.ringIndex);
-        rings[this.ringIndex].material.color.set(0x7dff8a);
-        this.ringIndex++;
+        rings[this.ringIndex].material.color.set(0x8fd18a);
+        this.ringIndex += 1;
         if (this.ringIndex >= RING_PATH.length) {
           this.stage = 1;
-          this.message = 'Destroy the installations. Click fires cannons, X flares, T gunner mode';
-        } else {
-          this.message = `Ring ${this.ringIndex} of ${RING_PATH.length} lit`;
+          this.message = 'Clear the compounds. Smoke breaks a rocket lock';
         }
       }
     } else if (this.stage === 1) {
-      if (combat && combat.installationsLeft() === 0) {
+      const left = combat ? combat.installationsLeft() : 0;
+      if (left === 0) {
         this.stage = 2;
-        this.message = 'Installations destroyed. Drop the crate on the village with Space';
-      } else if (combat) {
-        this.message = `Destroy the installations. ${combat.installationsLeft()} left. T gunner mode, X flares`;
+        this.hold = 0;
+        this.message = 'Compounds clear. Hold on the village cache';
+      } else {
+        this.message = `Clear the compounds. ${left} still standing`;
       }
     } else if (this.stage === 2) {
-      if (this.crateDropped && !this.crateLanded) {
-        this.crateVel.y -= 9.8 * dt;
-        this.crate.position.addScaledVector(this.crateVel, dt);
-        const ground = Math.max(terrainHeight(this.crate.position.x, this.crate.position.z), 0);
-        if (this.crate.position.y <= ground + 0.8) {
-          this.crateLanded = true;
-          const dist = Math.hypot(this.crate.position.x - WORLD.village.x, this.crate.position.z - WORLD.village.z);
-          this.score += Math.max(0, 400 - Math.round(dist));
+      const d = Math.hypot(flight.position.x - WORLD.village.x, flight.position.z - WORLD.village.z);
+      if (d < 16) {
+        this.hold += dt;
+        this.message = `Securing the cache ${Math.max(0, Math.ceil(3 - this.hold))}`;
+        if (this.hold >= 3) {
+          this.score += 400;
           audio.thud();
           this.stage = 3;
-          this.message = 'Land on the runway or beside the boat';
+          this.hold = 0;
+          this.message = 'Cache secure. Extract on the airstrip';
         }
+      } else {
+        this.hold = 0;
+        this.message = 'Hold on the village cache to secure it';
       }
     } else if (this.stage === 3) {
-      if (flight.landed && !flight.airborne) {
-        this.score += Math.round(flight.fuel) + Math.round(flight.hull);
-        this.grade = this.score > 2100 ? 'S' : this.score > 1700 ? 'A' : this.score > 1200 ? 'B' : 'C';
-        this.done = true;
-        this.message = `Sortie complete. Grade ${this.grade}. Score ${this.score}`;
-        audio.fanfare();
+      const r = WORLD.runway;
+      const d = Math.hypot(flight.position.x - r.x, flight.position.z - r.z);
+      if (d < 48 && !flight.airborne) {
+        this.hold += dt;
+        this.message = `Extracting ${Math.max(0, Math.ceil(3 - this.hold))}`;
+        if (this.hold >= 3) {
+          this.score += Math.round(flight.hull) + Math.round(combat ? combat.armor : 0);
+          this.grade = this.score > 2300 ? 'S' : this.score > 1800 ? 'A' : this.score > 1200 ? 'B' : 'C';
+          this.done = true;
+          this.message = `Raid complete. Grade ${this.grade}. Score ${this.score}`;
+          audio.fanfare();
+        }
+      } else {
+        this.hold = 0;
+        this.message = 'Return to the airstrip to extract';
       }
-    }
-    if (flight.crashed) {
-      this.done = true;
-      this.message = 'Aircraft down. Press R to restart';
     }
   }
 
   currentTarget(flight, combat) {
-    if (this.stage === 0) return RING_PATH[this.ringIndex];
-    if (this.stage === 1 && combat) return combat.nearestTarget(flight);
-    if (this.stage === 2) return { x: WORLD.village.x, y: 60, z: WORLD.village.z };
-    return { x: WORLD.runway.x, y: 30, z: WORLD.runway.z };
+    if (this.stage === 0) return RING_PATH[Math.min(this.ringIndex, RING_PATH.length - 1)];
+    if (this.stage === 1 && combat) {
+      const site = combat.nearestTarget(flight);
+      return { x: site.x, y: site.y, z: site.z };
+    }
+    if (this.stage === 2) return { x: WORLD.village.x, y: 20, z: WORLD.village.z };
+    return { x: WORLD.runway.x, y: 10, z: WORLD.runway.z };
   }
 }

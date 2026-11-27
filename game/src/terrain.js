@@ -123,7 +123,7 @@ export function buildSky() {
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `varying vec3 vDir;
       void main(){ float t = clamp(vDir.y*1.6+0.25, 0.0, 1.0);
-      vec3 horizon = vec3(1.0,0.72,0.42); vec3 zenith = vec3(0.35,0.62,0.92);
+      vec3 horizon = vec3(0.55,0.58,0.56); vec3 zenith = vec3(0.16,0.22,0.28);
       vec3 col = mix(horizon, zenith, t);
       vec3 sunDir = normalize(vec3(-0.55,0.28,-0.4));
       float sun = pow(max(dot(vDir, sunDir),0.0), 220.0);

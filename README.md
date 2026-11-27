@@ -6,17 +6,18 @@
 
 Entry for the [Make the best flight game](https://make.fun/bounty/best-flight-game-20261126-0057) bounty on make.fun.
 
-A Hercules gunship flies a dawn sortie over a New Zealand style archipelago.
-Light the sky lanterns through five rings.
-Destroy the radar station, the AAA batteries, and the supply depot with side cannons.
-Drop supplies on the village.
-Land before the fuel runs dry.
+A ground raid across the same archipelago. You insert on the airstrip and fight on foot
+to the village: phase lines, garrisoned compounds, then an extract back to the strip.
+The Three.js island, height field, and module loop are the original gunship sortie,
+retuned for a modern infantry firefight.
 
 ![Cover](screenshots/01-cover.jpg)
 
 ## Screenshots
 
-| Cockpit final | Gunner mode | Sortie debrief |
+The images below are the earlier gunship pass. The playable build is the ground raid.
+
+| Earlier cockpit | Earlier gunner | Earlier debrief |
 | --- | --- | --- |
 | ![Cockpit](screenshots/02-cockpit.jpg) | ![Gunner](screenshots/03-gunner.jpg) | ![Debrief](screenshots/04-debrief.jpg) |
 
@@ -24,52 +25,53 @@ Land before the fuel runs dry.
 
 | Key | Action |
 | --- | --- |
-| W / S | Throttle up and down |
-| Arrow keys or mouse | Steer pitch and roll |
-| Q / E | Yaw |
-| Mouse click or G | Fire the side cannons |
-| X | Deploy a flare decoy |
-| T | Gunner mode with autopilot circuit |
-| V | Chase and cockpit cameras |
-| F | Flaps |
-| Space | Drop the supply crate |
-| R | Restart the sortie |
+| Click | Capture the mouse |
+| W A S D | Move |
+| Mouse | Look |
+| Shift | Sprint. Drains stamina |
+| Ctrl / C | Crouch |
+| Z | Prone |
+| Q / E | Lean |
+| Space | Jump |
+| Left mouse | Fire |
+| Right mouse | Aim down sights |
+| R | Reload. Restarts after a death or a finished raid |
+| T | Auto and semi |
+| 1 / 2 | Carbine and sidearm |
+| G | Frag |
+| X | Smoke. Breaks a rocket lock |
+| F | Steady aim while sighted and still |
+| V | First person and shoulder camera |
+| Enter | Restart the raid |
 
-## Flight model
+## Movement
 
-- Throttle, pitch, roll, and yaw with a coordinated turn from bank.
-- Stall below stall speed with nose drop and a warning lamp.
-- Ground effect, fuel burn rising with throttle, hull damage on hard contact.
-- Flaps lower the stall speed and shorten the landing roll.
+- Walk, sprint, crouch, prone, jump, and lean on the island height field.
+- Sprint is faster than a real soldier so the existing island stays the battlefield.
+- Hills block shots. Smoke and crouch make return fire less accurate.
+- Health regenerates after a few seconds out of the fight. Armor does not.
 
 ## Combat
 
-- Four turboprops, side cannons on both flanks, and flare pods under the wings.
-- Ground targets: a radar station, two AAA batteries, a supply depot, and a truck convoy.
-- AAA batteries launch homing missiles inside their range.
-- A flare decoy pulls a missile off the aircraft.
-- Gunner mode hands the flying to an autopilot circuit while the player aims with the mouse.
+- M4A1 carbine, 30-round magazine, auto or semi, with recoil and spread.
+- M19 sidearm when the carbine runs dry.
+- Two frags and two smokes.
+- Four compounds along the airstrip-to-village road. Each falls when its garrison does.
+- Gun pits fire rockets. A smoke cloud pulls the rocket off you.
 
-## Instruments
+## Raid
 
-- Basic-T six pack: airspeed, attitude, altimeter, turn and slip, heading, vertical speed.
-- Engine cluster: RPM, manifold pressure, angle of attack, oil pressure, oil temperature, fuel gallons.
-- Every gauge prints its live numeric value.
-- Warning lamps cover flaps, stall, low fuel, and inbound missiles.
-
-## Sortie
-
-1. Fly through five orange rings.
-2. Destroy the four installations.
-3. Drop the crate on the village marker.
-4. Land on the runway or on the water beside the boat.
-5. Score grades the sortie S, A, B, or C.
+1. Walk the five phase lines.
+2. Clear the compounds.
+3. Hold on the village cache.
+4. Extract on the airstrip.
+5. Score grades the raid S, A, B, or C.
 
 ## Build
 
 Three.js renders the world from static files.
 One height function builds the terrain mesh and answers collision queries.
-Web Audio synthesises the engines, the wind, the cannons, and the theme motif.
+Web Audio synthesises the gunshots, the wind, the footsteps, and the objective stingers.
 No network request leaves the game folder.
 Run `node serve.ts` from the kit layout or open `game/index.html` through any static server.
 

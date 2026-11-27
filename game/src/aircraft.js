@@ -1,8 +1,8 @@
-// Hercules style four-engine gunship: high wing, side cannons, flare pods.
+// First-person weapon and a third-person operator for the shoulder camera.
 import * as THREE from 'three';
 
-function mat(color, flat = true) {
-  return new THREE.MeshLambertMaterial({ color, flatShading: flat });
+function mat(color) {
+  return new THREE.MeshLambertMaterial({ color, flatShading: true });
 }
 
 function box(w, h, d, color, x, y, z) {
@@ -11,91 +11,80 @@ function box(w, h, d, color, x, y, z) {
   return m;
 }
 
+function buildOperator() {
+  const g = new THREE.Group();
+  g.add(box(0.5, 0.62, 0.28, 0x4d5a3e, 0, 1.22, 0));
+  g.add(box(0.26, 0.28, 0.24, 0xc49a78, 0, 1.7, 0));
+  g.add(box(0.32, 0.14, 0.32, 0x2c3328, 0, 1.88, 0));
+  g.add(box(0.16, 0.72, 0.18, 0x3c4634, -0.14, 0.4, 0));
+  g.add(box(0.16, 0.72, 0.18, 0x3c4634, 0.14, 0.4, 0));
+  g.add(box(0.14, 0.48, 0.16, 0x4d5a3e, -0.34, 1.18, -0.08));
+  g.add(box(0.14, 0.48, 0.16, 0x4d5a3e, 0.34, 1.16, -0.16));
+  g.add(box(0.07, 0.08, 0.72, 0x1c1e1a, 0.16, 1.18, -0.42));
+  return g;
+}
+
+function barrel(length, x, y, z, color = 0x1a1c1e) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, length, 8), mat(color));
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(x, y, z);
+  return mesh;
+}
+
+function flash(z) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 6, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffe2a8 }),
+  );
+  mesh.position.set(0, 0.02, z);
+  mesh.visible = false;
+  return mesh;
+}
+
+function buildCarbine() {
+  const g = new THREE.Group();
+  g.add(box(0.07, 0.09, 0.32, 0x3a342c, 0, 0, 0.16));
+  g.add(box(0.055, 0.075, 0.26, 0x2a2e30, 0, 0.02, -0.1));
+  g.add(box(0.05, 0.05, 0.2, 0x3a403c, 0, -0.015, -0.08));
+  g.add(barrel(0.46, 0, 0.02, -0.4));
+  g.add(box(0.038, 0.13, 0.07, 0x202224, 0, -0.09, -0.04));
+  g.add(box(0.03, 0.1, 0.045, 0x2a241e, 0, -0.06, 0.06));
+  g.add(box(0.018, 0.05, 0.09, 0x121412, 0, 0.075, -0.12));
+  g.add(box(0.09, 0.08, 0.26, 0x4e5a42, 0.05, -0.04, 0.04));
+  g.add(box(0.08, 0.07, 0.2, 0x4e5a42, -0.01, -0.03, -0.12));
+  g.add(box(0.075, 0.06, 0.08, 0x2c312a, 0.04, -0.03, -0.02));
+  g.add(box(0.07, 0.055, 0.08, 0x2c312a, 0.02, -0.02, -0.2));
+  const muzzle = flash(-0.64);
+  g.add(muzzle);
+  g.userData.muzzle = muzzle;
+  return g;
+}
+
+function buildPistol() {
+  const g = new THREE.Group();
+  g.add(box(0.05, 0.07, 0.18, 0x2a2c2e, 0, 0.02, -0.06));
+  g.add(barrel(0.16, 0, 0.035, -0.18));
+  g.add(box(0.04, 0.12, 0.05, 0x2a241e, 0, -0.06, 0.04));
+  g.add(box(0.08, 0.07, 0.16, 0x4e5a42, 0.02, -0.03, 0.02));
+  g.add(box(0.07, 0.06, 0.07, 0x2c312a, 0.03, -0.02, -0.02));
+  const muzzle = flash(-0.28);
+  g.add(muzzle);
+  g.userData.muzzle = muzzle;
+  return g;
+}
+
 export function buildAircraft() {
-  const group = new THREE.Group();
-  const grey = 0x8d99a3;
-  const dark = 0x2b2f33;
-  const accent = 0xc94f38;
-
-  const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.7, 13, 12), mat(grey));
-  fuselage.rotation.x = Math.PI / 2;
-  fuselage.position.z = 0.5;
-  group.add(fuselage);
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(1.9, 12, 10), mat(grey));
-  nose.scale.set(1, 0.92, 1.25);
-  nose.position.z = -6.2;
-  group.add(nose);
-  const cockpitGlass = box(2.6, 1.1, 2.2, 0x1d2b33, 0, 1.15, -5.6);
-  group.add(cockpitGlass);
-  const canopy = cockpitGlass;
-  const tailRamp = box(3.2, 2.2, 2.6, grey, 0, 0.7, 7.2);
-  tailRamp.rotation.x = 0.35;
-  group.add(tailRamp);
-
-  const wing = box(23, 0.5, 3.4, grey, 0, 2.05, -1.2);
-  group.add(wing);
-  const wingTipL = box(2.2, 0.55, 3.4, accent, -11.2, 2.05, -1.2);
-  const wingTipR = box(2.2, 0.55, 3.4, accent, 11.2, 2.05, -1.2);
-  group.add(wingTipL, wingTipR);
-
-  const props = [];
-  const propDiscs = [];
-  for (const x of [-8.4, -4.2, 4.2, 8.4]) {
-    const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.75, 4.4, 10), mat(grey));
-    nacelle.rotation.x = Math.PI / 2;
-    nacelle.position.set(x, 1.55, -2.2);
-    group.add(nacelle);
-    const prop = new THREE.Group();
-    const bladeA = box(0.22, 3.6, 0.08, dark, 0, 0, 0);
-    const bladeB = box(3.6, 0.22, 0.08, dark, 0, 0, 0);
-    const hub = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), mat(dark));
-    prop.add(bladeA, bladeB, hub);
-    prop.position.set(x, 1.55, -4.55);
-    group.add(prop);
-    props.push(prop);
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(1.85, 24),
-      new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0, side: THREE.DoubleSide }),
-    );
-    disc.position.set(x, 1.55, -4.5);
-    group.add(disc);
-    propDiscs.push(disc);
-  }
-
-  const fin = box(0.4, 4.2, 2.6, grey, 0, 3.4, 6.6);
-  const tailplane = box(9.5, 0.35, 2.2, grey, 0, 5.3, 6.8);
-  group.add(fin, tailplane);
-
-  const gunL = new THREE.Group();
-  const gunR = new THREE.Group();
-  for (const [gun, side] of [[gunL, -1], [gunR, 1]]) {
-    const housing = box(0.7, 0.9, 3.2, dark, side * 2.05, -0.3, 1.8);
-    const barrelA = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.4, 8), mat(dark));
-    barrelA.rotation.z = Math.PI / 2;
-    barrelA.position.set(side * 3.4, -0.15, 1.2);
-    const barrelB = barrelA.clone();
-    barrelB.position.set(side * 3.4, -0.5, 2.4);
-    gun.add(housing, barrelA, barrelB);
-    group.add(gun);
-  }
-
-  const flarePodL = box(1.6, 0.5, 2.4, dark, -6.2, 1.5, -0.6);
-  const flarePodR = box(1.6, 0.5, 2.4, dark, 6.2, 1.5, -0.6);
-  group.add(flarePodL, flarePodR);
-
-  const gearL = box(1.1, 1.6, 4.6, grey, -2.1, -1.9, 0.6);
-  const gearR = box(1.1, 1.6, 4.6, grey, 2.1, -1.9, 0.6);
-  group.add(gearL, gearR);
-
-  const aileronL = box(4.4, 0.18, 1.1, 0x6e7a83, -8.8, 2.0, 0.35);
-  const aileronR = box(4.4, 0.18, 1.1, 0x6e7a83, 8.8, 2.0, 0.35);
-  group.add(aileronL, aileronR);
-
+  const group = buildOperator();
+  const viewmodel = new THREE.Group();
+  const carbine = buildCarbine();
+  const pistol = buildPistol();
+  pistol.visible = false;
+  viewmodel.add(carbine, pistol);
+  viewmodel.position.set(0.22, -0.26, -0.52);
   const blob = new THREE.Mesh(
-    new THREE.CircleGeometry(9, 20),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }),
+    new THREE.CircleGeometry(0.65, 14),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }),
   );
   blob.rotation.x = -Math.PI / 2;
-
-  return { group, props, propDiscs, aileronL, aileronR, blob, canopy, wing, gunL, gunR };
+  return { group, viewmodel, blob, carbine, pistol, muzzle: carbine.userData.muzzle };
 }

@@ -1,95 +1,81 @@
-// Staged screenshot poses through URL parameters.
+// Staged screenshots. Poses put the operator on the ground, in sights.
 import * as THREE from 'three';
 import { WORLD } from './config.js';
 import { RING_PATH } from './world-props.js';
+import { terrainHeight } from './terrain.js';
+
+function place(flight, x, z, lookX, lookZ, pitch) {
+  flight.position.set(x, Math.max(terrainHeight(x, z), 0), z);
+  flight.heading = Math.atan2(lookX - x, lookZ - z);
+  flight.lookPitch = pitch;
+  flight.pitch = pitch;
+  flight.recoilPitch = 0;
+  flight.recoilYaw = 0;
+  flight.speed = 0;
+  flight.airborne = false;
+  flight.landed = true;
+  flight.crouch = false;
+  flight.prone = false;
+}
 
 export function applyShotPose(shot, flight, cameraRig, missions, combat) {
   if (!shot) return false;
   if (shot === 'cover') {
-    flight.position.set(-230, 265, -120);
-    flight.heading = Math.atan2(-700 - flight.position.x, -500 - flight.position.z);
-    flight.pitch = -0.04;
-    flight.roll = -0.3;
-    flight.speed = 46;
-    flight.throttle = 0.8;
-    flight.rpm = 0.8;
-    flight.airborne = true;
-    missions.stage = 1;
-    missions.ringIndex = RING_PATH.length;
-    missions.message = 'Destroy the installations. T gunner mode, X flares';
-    if (combat) {
-      combat.stageTracers(flight, new THREE.Vector3(-700, 30, -500));
-      combat.boom.position.set(-700, 24, -500);
-      combat.boomLife = 0.45;
-      combat.boom.material.opacity = 0.8;
-      combat.boom.scale.set(2.2, 2.2, 2.2);
-    }
+    place(flight, 218, 560, 206, 500, -0.04);
     cameraRig.mode = 'chase';
-    cameraRig.distance = 36;
+    cameraRig.fov = 60;
     cameraRig.ready = false;
-    return true;
-  }
-  if (shot === 'cockpit') {
-    const r = WORLD.runway;
-    flight.position.set(r.x - Math.sin(r.heading) * 300, r.height + 45, r.z - Math.cos(r.heading) * 300);
-    flight.heading = r.heading;
-    flight.pitch = -0.12;
-    flight.roll = 0.05;
-    flight.speed = 30;
-    flight.throttle = 0.4;
-    flight.rpm = 0.4;
-    flight.airborne = true;
-    flight.flaps = true;
-    cameraRig.mode = 'cockpit';
-    return true;
-  }
-  if (shot === 'gunner') {
-    flight.position.set(-470, 195, 150);
-    flight.heading = Math.atan2(-300 - flight.position.x, 320 - flight.position.z);
-    flight.pitch = 0.02;
-    flight.roll = -0.42;
-    flight.speed = 46;
-    flight.throttle = 0.7;
-    flight.rpm = 0.7;
-    flight.airborne = true;
     missions.stage = 1;
     missions.ringIndex = RING_PATH.length;
-    missions.message = 'Gunner mode. Autopilot on. Click fires the side cannons';
+    missions.message = 'Clear the compounds. 4 still standing';
     if (combat) {
-      combat.gunner = true;
-      combat.mouseX = 640;
-      combat.mouseY = 380;
-      combat.stageTracers(flight, new THREE.Vector3(-300, 20, 320));
-      combat.boom.position.set(-300, 18, 320);
-      combat.boomLife = 0.45;
-      combat.boom.material.opacity = 0.8;
-      combat.boom.scale.set(2, 2, 2);
-      cameraRig.aimPoint = new THREE.Vector3(-300, 20, 320);
+      combat.poseContact(flight);
+      combat.stageTracers(flight, new THREE.Vector3(200, terrainHeight(200, 500) + 1.4, 500));
+      combat.muzzleTimer = 0.2;
     }
-    cameraRig.mode = 'gunner';
-    cameraRig.ready = false;
+    return true;
+  }
+  if (shot === 'cockpit' || shot === 'fps') {
+    place(flight, 218, 552, 206, 500, -0.05);
+    cameraRig.mode = 'fps';
+    cameraRig.fov = 70;
+    missions.stage = 1;
+    missions.ringIndex = RING_PATH.length;
+    missions.message = 'Clear the compounds. 4 still standing';
+    if (combat) {
+      combat.poseContact(flight);
+      combat.ads = false;
+    }
+    return true;
+  }
+  if (shot === 'gunner' || shot === 'ads') {
+    place(flight, 216, 544, 206, 500, -0.03);
+    cameraRig.mode = 'fps';
+    cameraRig.fov = 46;
+    cameraRig.camera.fov = 46;
+    cameraRig.camera.updateProjectionMatrix();
+    missions.stage = 1;
+    missions.ringIndex = RING_PATH.length;
+    missions.message = 'Contact. MG West is still up';
+    if (combat) {
+      combat.ads = true;
+      combat.poseContact(flight);
+      combat.contact = 2;
+    }
     return true;
   }
   if (shot === 'debrief') {
     const r = WORLD.runway;
-    flight.position.set(r.x - Math.sin(r.heading) * 120, r.height + 1.2, r.z - Math.cos(r.heading) * 120);
-    flight.heading = r.heading;
-    flight.pitch = 0;
-    flight.roll = 0;
-    flight.speed = 0;
-    flight.throttle = 0;
-    flight.rpm = 0.08;
-    flight.airborne = false;
-    flight.fuel = 62;
-    flight.hull = 94;
+    place(flight, r.x - 20, r.z - 30, r.x, r.z - 80, -0.02);
+    cameraRig.mode = 'fps';
+    cameraRig.fov = 70;
+    flight.hull = 78;
     missions.stage = 3;
     missions.done = true;
-    missions.grade = 'S';
-    missions.score = 2480;
-    missions.message = 'Sortie complete. Grade S. Score 2480';
-    cameraRig.mode = 'chase';
-    cameraRig.distance = 26;
-    cameraRig.ready = false;
+    missions.grade = 'A';
+    missions.score = 2140;
+    missions.message = 'Raid complete. Grade A. Score 2140';
+    if (combat) combat.armor = 20;
     return true;
   }
   return false;

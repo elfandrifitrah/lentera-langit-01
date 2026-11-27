@@ -3,13 +3,14 @@ import * as THREE from 'three';
 import { WORLD, createSeededRandom } from './config.js';
 import { terrainHeight } from './terrain.js';
 
+// Phase lines for the ground raid, dropped onto the airstrip-to-village corridor.
 export const RING_PATH = [
-  { x: 650, y: 90, z: 250 },
-  { x: 150, y: 130, z: -150 },
-  { x: -450, y: 170, z: -350 },
-  { x: -950, y: 230, z: -600 },
-  { x: -350, y: 150, z: 650 },
-];
+  { x: 480, z: 720 },
+  { x: 180, z: 480 },
+  { x: -80, z: 620 },
+  { x: -220, z: 900 },
+  { x: -350, z: 1180 },
+].map((p) => ({ x: p.x, z: p.z, y: Math.max(terrainHeight(p.x, p.z), 0) + 6.5 }));
 
 export function buildRunway() {
   const group = new THREE.Group();
@@ -57,8 +58,8 @@ export function buildRings() {
   const rings = [];
   for (const p of RING_PATH) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(16, 1.4, 10, 32),
-      new THREE.MeshBasicMaterial({ color: 0xff8c2e }),
+      new THREE.TorusGeometry(5.5, 0.28, 8, 28),
+      new THREE.MeshBasicMaterial({ color: 0xd7a441 }),
     );
     ring.position.set(p.x, p.y, p.z);
     group.add(ring);
